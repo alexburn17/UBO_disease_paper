@@ -1,11 +1,7 @@
-# UBO Joint Project
+# UBO Joint Disease Project
 # P. Alexander Burnham
 # 31 January 2023
-
-
-# set directory:
-setwd("~/Documents/GitHub/UBO_disease_paper")
-
+# Last Modified: 13 November 2023
 
 # install libraries
 library(dplyr)
@@ -20,6 +16,8 @@ library(scales)
 library(ggmosaic)
 library(wesanderson)
 
+# set directory:
+setwd("~/Documents/GitHub/UBO_disease_paper")
 
 # read in data
 ds <- read.csv("data/Chalkbrood_Aus.csv", header = TRUE, stringsAsFactors = FALSE)
@@ -27,6 +25,16 @@ ds23 <- read.csv("data/UBO_Data_2023.csv", header = TRUE, stringsAsFactors = FAL
 
 # 2022 data
 cleanDS_22 <- ds23[ds23$year == 2022,]
+
+
+
+
+#################################################################################
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Chalk Brood
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#################################################################################
+
 
 # select relavant variables
 ds <- select(ds, Test_No, Total_Brood, Brood_with_Chalk, White_Chalk, Spore_Dark_Chalk, Empty_Cells, Total_Cells, Cleared_Cells)
@@ -48,32 +56,11 @@ ds_long$chalk_type <- ifelse(ds_long$chalk_type == "White_Chalk", "White Chalk",
 # make chalkbrood binary
 ds_long$chalk_binary <- ifelse(ds_long$chalkbrood > 0, 1, 0)
 
-
-
-# total chalk
-ds$TotalChalk = ds$White_Chalk + ds$Spore_Dark_Chalk
-cor.test(x = ds$Percentage_UBO, y = ds$TotalChalk, method = 'spearman', alternative = "greater")
-
-
 # short data
 ds_short <- ds_long[ds_long$chalk_type == "White Chalk",]
 
-# plot chalk brood
-ggplot(ds_short, aes(x=Percentage_UBO, y=percent_chalk)) +
-  #geom_point(size=0) + 
-  geom_smooth(method="lm", se=FALSE, fullrange=TRUE, size = 1) +
-  geom_point(size=2.3) +
-  ylab("% frames with chalkbrood") + # y axis label
-  xlab("Proportion UBO Response") + # x axis label
-  theme_minimal(base_size = 17) + # size of the text and label ticks
-  theme(legend.position = c(.76, .9)) 
-
-# model for percentage ubo
-mod <- lm(data = ds_short, percent_chalk ~ Percentage_UBO)
-Anova(mod)
-
-
-cor.test(x = ds_short$Percentage_UBO, y = ds_short$percent_chalk, method = 'spearman', alternative = "greater")
+# total chalk
+ds$TotalChalk = ds$White_Chalk + ds$Spore_Dark_Chalk
 
 
 # ubo and chalk binary
@@ -89,7 +76,7 @@ UBO_chalk_binary <- ds_long %>% # operate on the dataframe (ds_2021) and assign 
     upper = qbeta(.975, shape1 = a, shape2 = b),
     
   ) 
-UBO_chalk_binary
+
 
 
 # ubo and chalk CONTINUOUS
@@ -102,41 +89,57 @@ UBO_chalk_brood <- ds_long %>% # operate on the dataframe (ds_2021) and assign t
     
   ) 
 
-x <- glm(data = ds_long, chalkbrood ~ UBO_binary * chalk_type)
-Anova(x)
 
 
-
-
-
-
-# parametric models without fitting distributions
-#mod <- aov(data = ds_short, percent_chalk ~ UBO_binary)
-#summary(mod)
-
-#mod <- lm(data = ds_short, percent_chalk ~ Percentage_UBO)
-#Anova(mod)
-
-#mod <- aov(data = ds_long, chalkbrood ~ UBO_binary * chalk_type)
-#summary(mod)
-
-#mod <- lm(data = ds_long, chalkbrood ~ Percentage_UBO * chalk_type)
-#Anova(mod)
-
-
+# PREVALENCE OF CHALKBROOD BY UBO SCORE
+####################################################################################################
 
 # model for binary chalk by ubo score
 mod <- glm(data = ds_long, chalk_binary ~ Percentage_UBO * chalk_type, binomial(link = "logit"))
 Anova(mod)
 
-# model for percentage ubo
+# plot chalk brood binary
+ggplot(ds_long, aes(x=Percentage_UBO, y=chalk_binary, color=as.character(chalk_type))) +
+  #geom_point(size=0) + 
+  geom_smooth(method="glm", se=FALSE, fullrange=TRUE, size = 1, method.args = list(family=binomial)) +
+  geom_point(size=2.3) +
+  ylab("Chalkbrood Binary") + # y axis label
+  xlab("Percent UBO Response") + # x axis label
+  theme_minimal(base_size = 17) + # size of the text and label ticks
+  theme(legend.position = c(.76, .9)) +
+  scale_color_manual(values = c("darkturquoise", "tomato3"), name=" ")  # color pallets option = A-H
+
+
+
+
+# PERCENT INFECTED FRAMES BY UBO SCORE
+####################################################################################################
+
+# plot chalk brood
+ggplot(ds_short, aes(x=Percentage_UBO, y=percent_chalk)) +
+  #geom_point(size=0) + 
+  geom_smooth(method="lm", se=FALSE, fullrange=TRUE, size = 1) +
+  geom_point(size=2.3) +
+  ylab("% frames with chalkbrood") + # y axis label
+  xlab("Percent UBO Response") + # x axis label
+  theme_minimal(base_size = 17) + # size of the text and label ticks
+  theme(legend.position = c(.76, .9)) +
+  
+
+# model for percentage ubo on frames
 mod <- lm(data = ds_short, percent_chalk ~ Percentage_UBO)
 Anova(mod)
 
+# original model
+cor.test(x = ds_short$Percentage_UBO, y = ds_short$percent_chalk, method = 'spearman', alternative = "greater")
 
 
 
-####
+
+
+
+# CHALKBROOD CELLS BY UBO SCORE
+####################################################################################################
 # plot chalk brood
 ggplot(ds_long, aes(x=Percentage_UBO, y=chalkbrood, 
                     color=as.character(chalk_type))) +
@@ -152,11 +155,20 @@ ggplot(ds_long, aes(x=Percentage_UBO, y=chalkbrood,
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x)))
 
-# final model chalkbrood counts
+# glm for chalkbrood count data by ubo score and chalk type (poisson)
 mod <- glm(data = ds_long, chalkbrood ~ Percentage_UBO * chalk_type, family = poisson(link = "log"))
 Anova(mod)
 
+cor.test(x = ds$Percentage_UBO, y = ds$TotalChalk, method = 'spearman', alternative = "greater")
 
+
+
+# CHALKBROOD type regression
+####################################################################################################
+plot(y = log10(ds$White_Chalk+1), x = log10(ds$Spore_Dark_Chalk + 1))
+
+x <- lm(data = ds, log10(Spore_Dark_Chalk + 1) ~ log10(White_Chalk+1))
+summary(x)
 
 
 
