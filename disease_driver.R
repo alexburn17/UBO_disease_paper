@@ -20,7 +20,9 @@ library(wesanderson)
 setwd("~/Documents/GitHub/UBO_disease_paper")
 
 # read in data
+#ds <- read.csv("data/Chalkbrood_Aus.csv", header = TRUE, stringsAsFactors = FALSE)
 ds <- read.csv("data/Chalkbrood_Aus.csv", header = TRUE, stringsAsFactors = FALSE)
+
 ds23 <- read.csv("data/UBO_Data_2023.csv", header = TRUE, stringsAsFactors = FALSE)
 
 # 2022 data
@@ -123,7 +125,7 @@ ggplot(ds_short, aes(x=Percentage_UBO, y=percent_chalk)) +
   ylab("% frames with chalkbrood") + # y axis label
   xlab("Percent UBO Response") + # x axis label
   theme_minimal(base_size = 17) + # size of the text and label ticks
-  theme(legend.position = c(.76, .9)) +
+  theme(legend.position = c(.76, .9)) 
   
 
 # model for percentage ubo on frames
@@ -141,7 +143,7 @@ cor.test(x = ds_short$Percentage_UBO, y = ds_short$percent_chalk, method = 'spea
 # CHALKBROOD CELLS BY UBO SCORE
 ####################################################################################################
 # plot chalk brood
-ggplot(ds_long, aes(x=Percentage_UBO, y=chalkbrood, 
+ggplot(ds_long, aes(x=Percentage_UBO, y= (chalkbrood + 1), 
                     color=as.character(chalk_type))) +
   #geom_point(size=0) + 
   geom_smooth(method="lm", se=FALSE, fullrange=TRUE, size = 1) +
@@ -159,6 +161,11 @@ ggplot(ds_long, aes(x=Percentage_UBO, y=chalkbrood,
 mod <- glm(data = ds_long, chalkbrood ~ Percentage_UBO * chalk_type, family = poisson(link = "log"))
 Anova(mod)
 
+
+mod <- lm(data = ds_long, chalkbrood ~ Percentage_UBO * chalk_type)
+summary(mod)
+
+# original model
 cor.test(x = ds$Percentage_UBO, y = ds$TotalChalk, method = 'spearman', alternative = "greater")
 
 
