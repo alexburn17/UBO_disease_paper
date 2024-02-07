@@ -300,3 +300,38 @@ Anova(mod2)
 mod3 <- glmer(data = cleanDS_22, (1+nosema_count) ~ UBO_binary * Month + (1 | lab_ID), family = Gamma(link=identity))
 Anova(mod3)
 
+
+
+
+#####################################################################################
+############################ VIRUS DATA 2021 ########################################
+#####################################################################################
+
+# READ DATA
+virus <- read.csv("data/UBO_VirusData_2021.csv", header = TRUE, stringsAsFactors = FALSE)
+virus$RPS5..Cq. <- NULL # remove un-needed col
+
+# make long form
+virus_long <- gather(virus, virus, virus_load, DWV.ACopies.µl:IAPVCopies.µl, factor_key=TRUE)
+
+# remove "Copies.ul" from virus name
+virus_long$virus <- gsub('Copies.µl', '', virus_long$virus)
+
+# ubo scores and binary virus and mites and log load
+virus_long$virus_binary <- ifelse(virus_long$virus_load > 0, 1, 0)
+virus_long$ubo_binary_june <- ifelse(virus_long$June.UBO > 0.6, "UBO +", "UBO -")
+virus_long$ubo_binary_august <- ifelse(virus_long$August.UBO > 0.6, "UBO +", "UBO -")
+virus_long$mite_binary_june <-  ifelse(virus_long$June.Mite > 0, 1, 0) 
+virus_long$mite_binary_august <- ifelse(virus_long$August.Mite > 0, 1, 0)
+virus_long$logLoad <- log10(virus_long$virus_load + 1)
+
+
+
+
+
+
+
+
+
+
+
