@@ -319,13 +319,48 @@ virus_long$virus <- gsub('Copies.µl', '', virus_long$virus)
 
 # ubo scores and binary virus and mites and log load
 virus_long$virus_binary <- ifelse(virus_long$virus_load > 0, 1, 0)
-virus_long$ubo_binary_june <- ifelse(virus_long$June.UBO > 0.6, "UBO +", "UBO -")
-virus_long$ubo_binary_august <- ifelse(virus_long$August.UBO > 0.6, "UBO +", "UBO -")
+virus_long$ubo_binary_june <- ifelse(virus_long$June.UBO > 60, "UBO +", "UBO -")
+virus_long$ubo_binary_august <- ifelse(virus_long$August.UBO > 60, "UBO +", "UBO -")
 virus_long$mite_binary_june <-  ifelse(virus_long$June.Mite > 0, 1, 0) 
 virus_long$mite_binary_august <- ifelse(virus_long$August.Mite > 0, 1, 0)
 virus_long$logLoad <- log10(virus_long$virus_load + 1)
 
+virus_long <- virus_long[!is.na(virus_long$ubo_binary_august),]
 
+# grouped boxplot
+ggplot(data = virus_long, aes(x = virus, y = virus_load, fill = ubo_binary_august)) + 
+  geom_boxplot() +
+  theme_minimal(base_size = 20) +
+  theme(legend.position = "top") +
+  labs(x="Virus", y="Virus Load (copies/ul)", fill = "UBO Status:") +
+  scale_fill_manual(values = c("#5071A0", "#E77624")) +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)))
+
+# virus binary summary
+virusPrevSum <- virus_long %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  group_by(virus, ubo_binary_august) %>% # pick variables to group by
+  dplyr::summarise(
+    mean = mean(virus_binary, na.rm=T), # mean
+    n = length(virus_binary),
+    a = sum(virus_binary, na.rm = T)+1,
+    b = n - a + 1,
+    lower = qbeta(.025, shape1 = a, shape2 = b),
+    upper = qbeta(.975, shape1 = a, shape2 = b),
+  ) 
+
+virusPrevSum <- virusPrevSum[complete.cases(virusPrevSum),]
+
+
+ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) + 
+  theme_minimal(base_size = 20) +
+  theme(legend.position = "top") +
+  labs(x="Virus", y="Virus Prevalence", fill = "UBO Status:") +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2,
+                position=position_dodge(.9)) +
+  scale_fill_manual(values = c("#5071A0", "#E77624")) +
+  scale_y_continuous(labels = scales::percent)
 
 
 

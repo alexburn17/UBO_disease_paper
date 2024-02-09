@@ -1,0 +1,608 @@
+# UBO Bee Breeder Project Data Analysis
+# P. Alexander Burnham, S. Miller, C. McKay, and Samantha Alger
+# 30 November 2022
+
+
+# set directory:
+setwd("~/Documents/GitHub/UBO")
+
+
+# install libraries
+library(dplyr)
+library(ggplot2)
+library(lme4)
+library(tidyr)
+library(viridis)
+library(car)
+library(imputeTS)
+library(cowplot)
+library(scales)
+library(ggmosaic)
+library(wesanderson)
+
+
+
+ds23 <- read.csv("data/UBO_Data_2023.csv", header = TRUE, stringsAsFactors = FALSE)
+ds23 <- ds23[ds23$beekeeper == "Mike Palmer",]
+
+# add ubo test months
+# add month 
+ds23$testNum <- substr(ds23$UBO_test_date, 1, 1)
+ds23$testMonth <- ifelse(ds23$testNum == 5, "May", 
+                         ifelse(ds23$testNum == 6, "June", 
+                                ifelse(ds23$testNum == 7, "July", 
+                                       ifelse(ds23$testNum == 8, "August",
+                                              ifelse(ds23$testNum == 9, "Sept.", NA)))))
+
+# 2022 data
+cleanDS_22 <- ds23[ds23$year == 2022,]
+
+
+#################################################################################
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# 2023 
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#################################################################################
+
+# simplify dataset
+cleanDS <- dplyr::select(ds23, year, beekeeper, sampling_event, lab_ID, assay_score, sampling_date, varroa_count, 
+                         nosema_count, FKB_percentile, project, breeder_colony_UBO_status, breeder_mating_system, queen_mating_system, UBO_test_date, testMonth, yard)
+
+cleanDS <- cleanDS[cleanDS$year == 2023,]
+
+# convert coerced vars to numeric
+cleanDS$nosema_count <- as.numeric(cleanDS$nosema_count)
+cleanDS$assay_score <- as.numeric(cleanDS$assay_score)
+
+# create heritibility dataset
+herit <- cleanDS[cleanDS$project=="heritability",]
+
+# create main 2023 dataset
+cleanDS <- cleanDS[!cleanDS$project=="heritability",]
+
+# select ubo testing periods
+x <- cleanDS[cleanDS$assay_score >= 0,]
+uboMap <- dplyr::select(x, lab_ID, assay_score)[complete.cases(dplyr::select(x, lab_ID, assay_score)),]
+cleanDS$assay_score <- NULL # delete assay score
+cleanDS <- merge(x = cleanDS, y = uboMap, by = "lab_ID", all.x=T) # merge UBO scores
+
+
+
+# add month 
+cleanDS$monthNum <- substr(cleanDS$sampling_date, 1, 1)
+cleanDS$Month <- ifelse(cleanDS$monthNum == 5, "May", 
+                        ifelse(cleanDS$monthNum == 6, "June", 
+                               ifelse(cleanDS$monthNum == 7, "July", 
+                                      ifelse(cleanDS$monthNum == 8, "August",
+                                             ifelse(cleanDS$monthNum == 9, "Sept.", NA)))))
+
+
+# add binary variable
+cleanDS$UBO_binary <- ifelse(cleanDS$assay_score >= 0.6, 1, 0) #"hygienic", "nonhygienic")
+cleanDS$Nosema_binary <- ifelse(cleanDS$nosema_count > 0, 1, 0) 
+
+
+
+##############################################################################
+# Heritability 23
+##############################################################################
+
+herit$breeder <- paste0(herit$breeder_mating_system, " + " ,herit$queen_mating_system)
+
+herit$breeder <- ifelse(herit$breeder_colony_UBO_status == "low", "OM + OM (low)", herit$breeder)
+
+herit <- herit[!herit$breeder=="OM + II",]
+
+herit <- filter(herit, breeder == 'OM + OM (low)' | breeder == "OM + OM" | breeder == "II + OM"| breeder == "II + II")
+
+herit$UBO_binary <- ifelse(herit$assay_score >= 0.6, 1, 0)
+thresh <- mean(ifelse(cleanDS_22$assay_score >= .6, 1, 0), na.rm=T)
+
+
+
+# ubo summary
+uboPrevSum <- herit %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  dplyr::group_by(breeder) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(UBO_binary, na.rm=T), # mean
+    n = length(UBO_binary),
+    a = sum(UBO_binary, na.rm = T)+1,
+    b = n - a + 1,
+    lower = qbeta(.025, shape1 = a, shape2 = b),
+    upper = qbeta(.975, shape1 = a, shape2 = b),
+    
+  ) 
+
+
+
+c("#9E519F", "#5071A0", "#519E9A","#619B50", "#B6A331", "#E77624", "#EE2E27")
+
+
+
+# HERE
+# Hygienic behavior by breeding type
+ggplot(herit, aes(x=breeder, y=assay_score)) + 
+  geom_boxplot(size=1, outlier.shape = NA, aes(color=breeder)) +
+  geom_jitter(size=3, aes(color=breeder)) +
+  guides(color = guide_legend(override.aes = list(label = ''))) +
+  ylab("UBO Score") + # y axis label
+  xlab("Breeding System") + # x axis label
+  theme_minimal(base_size = 17) + # size of the text and label ticks
+  theme(legend.position = "none") + # place the legend at the top
+  scale_color_manual(values = c("#9E519F")) +
+  geom_hline(yintercept=c(.6), linetype="dashed",
+             color = c("black"), size=1) +
+  stat_summary(fun=mean, geom="point", shape=18, size=8, color="black") +
+  scale_y_continuous(labels = scales::percent)
+
+# percent UBO by breeding type
+ggplot(uboPrevSum, aes(x=breeder, y=mean, color = breeder)) + 
+  geom_point(size = 10, shape = 18) +
+  theme_classic(base_size = 17) +
+  theme(legend.position = c(8,8)) +
+  coord_cartesian(ylim = c(0, .77)) + 
+  geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.2, color=breeder))+
+  labs(x="Breeding System", y="Percent High UBO", color="UBO Status:") +
+  scale_color_manual(values = c("darkturquoise")) +
+  scale_y_continuous(labels = scales::percent)
+
+
+
+
+##############################################################################
+# Nosema 23
+##############################################################################
+
+
+# nosema summary
+nosePrevSum <- cleanDS %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  dplyr::group_by(Month, UBO_binary) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(Nosema_binary, na.rm=T), # mean
+    n = length(Nosema_binary),
+    a = sum(Nosema_binary, na.rm = T)+1,
+    b = n - a + 1,
+    lower = qbeta(.025, shape1 = a, shape2 = b),
+    upper = qbeta(.975, shape1 = a, shape2 = b),
+    
+  ) 
+
+nosePrevSum <- nosePrevSum[complete.cases(nosePrevSum),]
+
+
+nosemaLoad_Sum <- cleanDS %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  dplyr::group_by(Month, UBO_binary) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(((nosema_count*4000000)/80), na.rm=T), # mean\
+    n = length(((nosema_count*4000000)/80)),
+    sd = sd(((nosema_count*4000000)/80), na.rm = TRUE),
+    se = sd / sqrt(n)
+    
+  ) 
+
+nosemaLoad_Sum <- nosemaLoad_Sum[complete.cases(nosemaLoad_Sum),]
+
+
+# add factor data and make ubo a char
+nosePrevSum <- nosePrevSum[!is.na(nosePrevSum$UBO_binary),]
+nosePrevSum$Month <- factor(nosePrevSum$Month, levels = c("May", "June", "July", "August", "Sept."))
+nosePrevSum$UBO_Char <- ifelse(nosePrevSum$UBO_binary==1, "UBO High", "UBO Low")
+
+# plot prevalence
+nosPrev <- ggplot(nosePrevSum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5)+
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(8,8)) +
+  coord_cartesian(ylim = c(0, 1)) + 
+  geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.1, color=UBO_Char))+
+  labs(x="Sampling Month", y="Nosema Prevalence", color="UBO Status:") +
+  scale_color_manual(values = c("tomato3", "darkturquoise")) +
+  scale_y_continuous(labels = scales::percent)
+
+
+
+# add factor data and make ubo a char
+nosemaLoad_Sum <- nosemaLoad_Sum[!is.na(nosemaLoad_Sum$UBO_binary),]
+nosemaLoad_Sum$Month <- factor(nosemaLoad_Sum$Month, levels = c("May", "June", "July", "August", "Sept."))
+nosemaLoad_Sum$UBO_Char <- ifelse(nosemaLoad_Sum$UBO_binary==1, "UBO High", "UBO Low")
+
+contNos <- ggplot(nosemaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5)+
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(.6,.9)) +
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
+  labs(x="Sampling Date", y="Nosema Load (spores/bee)", color=" ") +
+  #scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+  #              labels = trans_format("log10", math_format(10^.x))) +
+  scale_color_manual(values = c( "tomato3", "darkturquoise")) +
+  geom_hline(yintercept=1000000, linetype="dashed",
+             color = c("black"), size=1)
+
+
+# make a multi panel plot
+plot_grid(nosPrev, contNos,
+          labels = "AUTO", 
+          label_size = 20)
+
+mod2 <- glmer(data = cleanDS, Nosema_binary ~ UBO_binary * Month + (1 | lab_ID), family = binomial(link="logit"))
+Anova(mod2)
+
+mod3 <- glmer(data = cleanDS, nosema_count ~ UBO_binary * Month + (1 | lab_ID), family = "gaussian")
+Anova(mod3)
+
+
+
+
+
+##############################################################################
+# Varroa 23
+##############################################################################
+
+
+# remove 0s
+cleanDS$varroa_binary <- ifelse(cleanDS$varroa_count > 0, 1, 0)
+
+
+varroaPrevSum <- cleanDS %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  dplyr::group_by(Month, UBO_binary) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(varroa_binary, na.rm=T), # mean
+    n = length(varroa_binary),
+    a = sum(varroa_binary, na.rm = T)+1,
+    b = n - a + 1,
+    lower = qbeta(.025, shape1 = a, shape2 = b),
+    upper = qbeta(.975, shape1 = a, shape2 = b),
+    
+  ) 
+varroaPrevSum <- varroaPrevSum[complete.cases(varroaPrevSum),]
+
+
+
+# add factor data and make ubo a char
+varroaPrevSum <- varroaPrevSum[!is.na(varroaPrevSum$UBO_binary),]
+varroaPrevSum$Month <- factor(varroaPrevSum$Month, levels = c("May", "June", "July", "August", "Sept."))
+varroaPrevSum$UBO_Char <- ifelse(varroaPrevSum$UBO_binary==1, "UBO High", "UBO low")
+
+# HERE
+# plot prevalence
+varPrev <- ggplot(varroaPrevSum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5)+
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(4,5)) +
+  coord_cartesian(ylim = c(0, 1)) + 
+  geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.1, color=UBO_Char))+
+  labs(x="Sampling Month", y="Varroa Prevalence", color="") +
+  scale_color_manual(values = c("#9E519F", "#519E9A")) +
+  scale_y_continuous(labels = scales::percent)
+
+
+
+varroaLoad_Sum <- cleanDS %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  group_by(Month, UBO_binary) %>% # pick variables to group by
+  summarise(
+    
+    mean = mean(100*(varroa_count/300), na.rm=T), # mean\
+    n = length(100*(varroa_count/300)),
+    sd = sd(100*(varroa_count/300), na.rm = TRUE),
+    se = sd / sqrt(n)
+    
+  ) 
+varroaLoad_Sum <- varroaLoad_Sum[complete.cases(varroaLoad_Sum),]
+
+# add factor data and make ubo a char
+varroaLoad_Sum <- varroaLoad_Sum[!is.na(varroaLoad_Sum$UBO_binary),]
+varroaLoad_Sum$Month <- factor(varroaLoad_Sum$Month, levels = c("May", "June", "July", "August", 
+                                                                "Sept."))
+varroaLoad_Sum$UBO_Char <- ifelse(varroaLoad_Sum$UBO_binary==1, "UBO High", "UBO Low")
+
+varLoad <-ggplot(varroaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5)+
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(.4,.9)) +
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
+  labs(x="Sampling Month", y="Varroa Load (mites/100 bees)", color=" ") +
+  scale_color_manual(values = c("#9E519F", "#519E9A")) +
+  geom_hline(yintercept=c(2), linetype="dashed",
+             color = c("black"), size=1)
+varLoad
+
+
+# make a multi panel plot
+plot_grid(varPrev, varLoad,
+          labels = "AUTO", 
+          label_size = 20)
+
+cleanDS$Month
+
+mod1 <- glmer(data = cleanDS, (varroa_count+1) ~ UBO_binary * Month + (1 | lab_ID), family="Gamma"(link='log'))
+Anova(mod1)
+
+mod2 <- glmer(data = cleanDS, varroa_binary ~ UBO_binary * Month + (1 | lab_ID), family = binomial(link="logit"))
+Anova(mod2)
+
+
+mod <- glmer(data = Varroa_no0[Varroa_no0$Month=="May",], varroa_load ~ assay_score + (1 | beekeeper), family = "Gamma")
+Anova(mod)
+
+
+#############################################################################
+# Beekeeper 23
+#############################################################################
+
+colors <- wes_palette("Zissou1", 5, "discrete")[c(1,2,4,5)]
+
+cleanDS$anonBeek <- ifelse(cleanDS$beekeeper=="Andrew Munkres", "Beekeeper 1", 
+                           ifelse(cleanDS$beekeeper=="Mike Palmer", "Beekeeper 2",
+                                  ifelse(cleanDS$beekeeper=="Jack Rath", "Beekeeper 3", "Beekeeper 4")))
+
+
+# find out percentage of Mike 2023 daughter UBO
+MikeAugustUBO <- cleanDS[cleanDS$Month=="August" & cleanDS$beekeeper == "Mike Palmer",]
+mean(MikeAugustUBO$UBO_binary, na.rm=T)
+
+# ubo summary
+uboPrevSumBeek <- cleanDS %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  dplyr::group_by(anonBeek) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(UBO_binary, na.rm=T), # mean
+    n = length(UBO_binary),
+    a = sum(UBO_binary, na.rm = T)+1,
+    b = n - a + 1,
+    lower = qbeta(.025, shape1 = a, shape2 = b),
+    upper = qbeta(.975, shape1 = a, shape2 = b),
+    
+  ) 
+
+
+# Hygienic behavior by hive/yard, points number of hives, threshold dotted bar
+ggplot(cleanDS, aes(x=anonBeek, y=assay_score, color=beekeeper)) + 
+  geom_boxplot(size=1, outlier.shape = NA) +
+  geom_jitter(size=3) +
+  guides(color = guide_legend(override.aes = list(label = ''))) +
+  ylab("UBO Score") + # y axis label
+  xlab("Beekeeper") + # x axis label
+  theme_minimal(base_size = 17) + # size of the text and label ticks
+  theme(legend.position = "none") + # place the legend at the top
+  scale_color_manual(values = c("#3B9AB2", "#78B7C5", "#F21A00","#E1AF00")) +
+  geom_hline(yintercept=.6, linetype="dashed",
+             color = "black", size=1) +
+  scale_y_continuous(labels = scales::percent) +
+  stat_summary(fun=mean, geom="point", shape=18, size=8, color="black")
+
+
+
+# percent UBO by breeding type
+ggplot(uboPrevSumBeek, aes(x=anonBeek, y=mean, color = anonBeek)) + 
+  geom_point(size = 10, shape = 18) +
+  theme_classic(base_size = 17) +
+  theme(legend.position = c(8,8)) +
+  coord_cartesian(ylim = c(0, .77)) + 
+  geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.2, color=anonBeek))+
+  labs(x="Beekeeper", y="Percent High UBO", color="UBO Status:") +
+  scale_color_manual(values = c("#3B9AB2", "#E1AF00", "#F21A00", "#78B7C5")) +
+  geom_hline(yintercept=thresh, linetype="dashed",
+             color = c("black"), size=1) +
+  scale_y_continuous(labels = scales::percent)
+
+
+#################################################################################
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# 2022
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#################################################################################
+
+cleanDS_22 <- dplyr::select(cleanDS_22, year, beekeeper, sampling_event, lab_ID, assay_score, sampling_date, varroa_count, 
+                            nosema_count, FKB_percentile, UBO_test_date, testMonth)
+
+
+# select ubo testing periods
+x <- cleanDS_22[cleanDS_22$assay_score >= 0,]
+uboMap <- dplyr::select(x, lab_ID, assay_score)[complete.cases(dplyr::select(x, lab_ID, assay_score)),]
+cleanDS_22$assay_score <- NULL # delete assay score
+cleanDS_22 <- merge(x = cleanDS_22, y = uboMap, by = "lab_ID", all.x=T) # merge UBO scores
+
+# add month 
+cleanDS_22$monthNum <- substr(cleanDS_22$sampling_date, 1, 1)
+cleanDS_22$Month <- ifelse(cleanDS_22$monthNum == 5, "May", 
+                           ifelse(cleanDS_22$monthNum == 6, "June", 
+                                  ifelse(cleanDS_22$monthNum == 7, "July", 
+                                         ifelse(cleanDS_22$monthNum == 8, "August",
+                                                ifelse(cleanDS_22$monthNum == 9, "Sept.", NA)))))
+# convert coerced vars to numeric
+cleanDS_22$nosema_count <- as.numeric(cleanDS_22$nosema_count)
+cleanDS_22$assay_score <- as.numeric(cleanDS_22$assay_score)                                            
+
+
+# add binary variable
+cleanDS_22$UBO_binary <- ifelse(cleanDS_22$assay_score >= 0.6, 1, 0) #"hygienic", "nonhygienic")
+cleanDS_22$Nosema_binary <- ifelse(cleanDS_22$nosema_count > 0, 1, 0) 
+cleanDS_22$Varroa_binary <- ifelse(cleanDS_22$varroa_count > 0, 1, 0)
+
+
+# create anonymous beekeeper names
+cleanDS_22$anonBeek <- ifelse(cleanDS_22$beekeeper == "Andrew Munkres", "beekeeper 1",
+                              ifelse(cleanDS_22$beekeeper == "Mike Palmer", "beekeeper 2", 
+                                     ifelse(cleanDS_22$beekeeper == "Jack Rath", "beekeeper 3", NA
+                                     )))
+
+
+##############################################################################
+# Nosema 22
+##############################################################################
+
+
+# nosema summary
+nosePrevSum <- cleanDS_22 %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  group_by(Month, UBO_binary) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(Nosema_binary, na.rm=T), # mean
+    n = length(Nosema_binary),
+    a = sum(Nosema_binary, na.rm = T)+1,
+    b = n - a + 1,
+    lower = qbeta(.025, shape1 = a, shape2 = b),
+    upper = qbeta(.975, shape1 = a, shape2 = b),
+    
+  ) 
+
+nosePrevSum <- nosePrevSum[complete.cases(nosePrevSum),]
+
+
+nosemaLoad_Sum <- cleanDS_22 %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  group_by(Month, UBO_binary) %>% # pick variables to group by
+  summarise(
+    
+    mean = mean(((nosema_count*4000000)/80), na.rm=T), # mean\
+    n = length(((nosema_count*4000000)/80)),
+    sd = sd(((nosema_count*4000000)/80), na.rm = TRUE),
+    se = sd / sqrt(n)
+    
+  ) 
+
+nosemaLoad_Sum <- nosemaLoad_Sum[complete.cases(nosemaLoad_Sum),]
+
+
+# add factor data and make ubo a char
+nosePrevSum <- nosePrevSum[!is.na(nosePrevSum$UBO_binary),]
+nosePrevSum$Month <- factor(nosePrevSum$Month, levels = c("June", "July", "August", "Sept."))
+nosePrevSum$UBO_Char <- ifelse(nosePrevSum$UBO_binary==1, "UBO High", "UBO Low")
+
+# plot prevalence
+nosPrev <- ggplot(nosePrevSum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5)+
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(.7,.95)) +
+  coord_cartesian(ylim = c(0, 1)) + 
+  geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.1, color=UBO_Char))+
+  labs(x="Sampling Month", y="Nosema Prevalence", color=" ") +
+  scale_color_manual(values = c("tomato3", "darkturquoise")) +
+  scale_y_continuous(labels = scales::percent)
+
+
+
+# add factor data and make ubo a char
+nosemaLoad_Sum <- nosemaLoad_Sum[!is.na(nosemaLoad_Sum$UBO_binary),]
+nosemaLoad_Sum$Month <- factor(nosemaLoad_Sum$Month, levels = c("June", "July", "August", "Sept."))
+nosemaLoad_Sum$UBO_Char <- ifelse(nosemaLoad_Sum$UBO_binary==1, "UBO High", "UBO Low")
+
+contNos <-ggplot(nosemaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5) +
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(3,9)) +
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
+  labs(x="Sampling Date", y="Nosema Load (spores/bee)", color=" ") +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x))) +
+  scale_color_manual(values = c( "tomato3", "darkturquoise")) 
+
+
+# make a multi panel plot
+plot_grid(nosPrev, contNos,
+          labels = "AUTO", 
+          label_size = 20)
+
+mod2 <- glmer(data = cleanDS_22, Nosema_binary ~ UBO_binary * Month + (1 | lab_ID), family = binomial(link="logit"))
+Anova(mod2)
+
+mod3 <- glmer(data = cleanDS_22, (1+nosema_count) ~ UBO_binary * Month + (1 | lab_ID), family = Gamma(link=identity))
+Anova(mod3)
+
+
+
+##############################################################################
+# Varroa 22
+##############################################################################
+
+
+varroaPrevSum <- cleanDS_22 %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  group_by(Month, UBO_binary) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(Varroa_binary, na.rm=T), # mean
+    n = length(Varroa_binary),
+    a = sum(Varroa_binary, na.rm = T)+1,
+    b = n - a + 1,
+    lower = qbeta(.025, shape1 = a, shape2 = b),
+    upper = qbeta(.975, shape1 = a, shape2 = b),
+    
+  ) 
+varroaPrevSum <- varroaPrevSum[complete.cases(varroaPrevSum),]
+
+
+
+# add factor data and make ubo a char
+varroaPrevSum <- varroaPrevSum[!is.na(varroaPrevSum$UBO_binary),]
+varroaPrevSum$Month <- factor(varroaPrevSum$Month, levels = c("June", "July", "August", "Sept."))
+varroaPrevSum$UBO_Char <- ifelse(varroaPrevSum$UBO_binary==1, "UBO High", "UBO low")
+
+
+# plot prevalence
+varPrev <- ggplot(varroaPrevSum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5)+
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(4,5)) +
+  coord_cartesian(ylim = c(0, 1)) + 
+  geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.1, color=UBO_Char))+
+  labs(x="Sampling Month", y="Varroa Prevalence", color="") +
+  scale_color_manual(values = c("tomato3", "darkturquoise")) +
+  scale_y_continuous(labels = scales::percent)
+
+
+
+varroaLoad_Sum <- cleanDS_22 %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  group_by(Month, UBO_binary) %>% # pick variables to group by
+  dplyr::summarise(
+    
+    mean = mean(100*(varroa_count/300), na.rm=T), # mean\
+    n = length(100*(varroa_count/300)),
+    sd = sd(100*(varroa_count/300), na.rm = TRUE),
+    se = sd / sqrt(n)
+    
+  ) 
+varroaLoad_Sum <- varroaLoad_Sum[complete.cases(varroaLoad_Sum),]
+
+# add factor data and make ubo a char
+varroaLoad_Sum <- varroaLoad_Sum[!is.na(varroaLoad_Sum$UBO_binary),]
+varroaLoad_Sum$Month <- factor(varroaLoad_Sum$Month, levels = c("June", "July", "August", "Sept."))
+varroaLoad_Sum$UBO_Char <- ifelse(varroaLoad_Sum$UBO_binary==1, "UBO High", "UBO Low")
+
+varLoad <-ggplot(varroaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5)+
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(.3,.82)) +
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
+  labs(x="Sampling Month", y="Varroa Load (mites/100 bees)", color=" ") +
+  scale_color_manual(values = c("tomato3", "darkturquoise")) +
+  geom_hline(yintercept=c(2), linetype="dashed",
+             color = c("black"), size=1)
+varLoad
+
+
+# make a multi panel plot
+plot_grid(varPrev, varLoad,
+          labels = "AUTO", 
+          label_size = 20)
+
+
+mod1 <- glmer(data = cleanDS_22, (varroa_count+1) ~ UBO_binary * Month + (1 | lab_ID), family = Gamma(link="identity"))
+Anova(mod1)
+
+mod2 <- glmer(data = cleanDS_22, Varroa_binary ~ UBO_binary * Month + (1 | lab_ID), family = binomial(link="logit"))
+Anova(mod2)
+
+
+
+
