@@ -362,7 +362,14 @@ ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) +
   scale_fill_manual(values = c("#5071A0", "#E77624")) +
   scale_y_continuous(labels = scales::percent)
 
+# make data wide
+virus_wide <- select(virus_long, -virus_binary, -ubo_binary_june, -ubo_binary_august,-mite_binary_june, -virus_load)
+virus_wide <- virus_wide %>% pivot_wider(names_from = virus, values_from = logLoad)
+virus_wide$ubo_binary_june <- ifelse(virus_wide$June.UBO > 60, "UBO +", "UBO -")
+virus_wide$ubo_binary_august <- ifelse(virus_wide$August.UBO > 60, "UBO +", "UBO -")
 
+res.man <- manova(cbind(June.Mite,August.Mite,DWV.A,DWV.B,LSV,SBV,BQCV,IAPV) ~ ubo_binary_august, data = virus_wide)
+summary.aov(res.man)
 
 
 
