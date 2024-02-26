@@ -301,8 +301,23 @@ mod3 <- glmer(data = cleanDS_22, (1+nosema_count) ~ UBO_binary * Month + (1 | la
 Anova(mod3)
 
 
+cleanDS_22_noMonth <- cleanDS_22[!is.na(cleanDS_22$Month),]
+##########################################################################
+# Nosema Scatter plot
 
+ggplot(cleanDS_22_noMonth, aes(x=assay_score, y=((nosema_count*4000000)/80), color=Month, shape=Month)) +
+  geom_point(size=4) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 1.9) +
+  theme_minimal(base_size = 20) +
+  theme(legend.position = c(.8,.8)) +
+  labs(x="UBO Score", y="Nosema Load (spores/bee)", color="Month") +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x))) +
+  scale_color_manual(values = c("#9E519F","#519E9A", "#5071A0", "#E77624")) 
 
+x <- lmer(data = cleanDS_22_noMonth, log10(nosema_count+1) ~ assay_score + (1|Month))
+Anova(x)
+summary(x)
 #####################################################################################
 ############################ VIRUS DATA 2021 ########################################
 #####################################################################################
@@ -373,7 +388,36 @@ summary.aov(res.man)
 
 
 
+virus_long$virus_load
+virus_long$August.UBO
+virus_long$virus
 
 
+
+ggplot(virus_long, aes(x=August.UBO, y=virus_load, color=virus)) +
+  geom_point(size=4) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 1.9) +
+  theme_minimal(base_size = 20) +
+  theme(legend.position = c(.8,.8)) +
+  labs(x="UBO Score", y="Virus Load (copies/bee)", color="Virus") +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x))) +
+  scale_color_manual(values = c("#9E519F","#519E9A", "#5071A0", "#E77624", "#EE2E27", "#619B50")) 
+
+#"#519E9A","#619B50", "#E77624", "#EE2E27", "#5C4FA1"
+
+
+ggplot(virus_long, aes(x=June.UBO, y=virus_load)) +
+  geom_point(size=4) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 1.9, color = "#E77624") +
+  theme_minimal(base_size = 20) +
+  theme(legend.position = c(.8,.8)) +
+  labs(x="UBO Score", y="Virus Load (copies/bee)") +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x))) +
+  facet_wrap(vars(virus))
+  
+  
+#virus_long$
 
 
