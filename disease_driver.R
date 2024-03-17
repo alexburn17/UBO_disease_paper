@@ -305,6 +305,9 @@ cleanDS_22_noMonth <- cleanDS_22[!is.na(cleanDS_22$Month),]
 ##########################################################################
 # Nosema Scatter plot
 
+# make month a factor
+cleanDS_22_noMonth$Month <- factor(cleanDS_22_noMonth$Month, levels = c("June", "July", "August", "Sept."))
+
 ggplot(cleanDS_22_noMonth, aes(x=assay_score, y=((nosema_count*4000000)/80), color=Month, shape=Month)) +
   geom_point(size=4) + 
   geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 1.9) +
@@ -318,6 +321,12 @@ ggplot(cleanDS_22_noMonth, aes(x=assay_score, y=((nosema_count*4000000)/80), col
 x <- lmer(data = cleanDS_22_noMonth, log10(nosema_count+1) ~ assay_score + (1|Month))
 Anova(x)
 summary(x)
+
+
+y <- lm(data = cleanDS_22_noMonth, log10(nosema_count+1) ~ assay_score * Month)
+Anova(y)
+summary(y)
+
 #####################################################################################
 ############################ VIRUS DATA 2021 ########################################
 #####################################################################################
