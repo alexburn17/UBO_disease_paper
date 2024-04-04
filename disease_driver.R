@@ -15,6 +15,7 @@ library(cowplot)
 library(scales)
 library(ggmosaic)
 library(wesanderson)
+library(multcomp)
 
 # set directory:
 setwd("~/Documents/GitHub/UBO_disease_paper")
@@ -94,8 +95,6 @@ UBO_chalk_brood <- ds_long %>% # operate on the dataframe (ds_2021) and assign t
 
 
 
-c("#9E519F","#519E9A", "#5071A0", "#E77624", "#EE2E27", "#619B50")
-
 
 # PREVALENCE OF CHALKBROOD BY UBO SCORE
 ####################################################################################################
@@ -103,16 +102,17 @@ c("#9E519F","#519E9A", "#5071A0", "#E77624", "#EE2E27", "#619B50")
 # model for binary chalk by ubo score
 mod <- glm(data = ds_long, chalk_binary ~ Percentage_UBO * chalk_type, binomial(link = "logit"))
 Anova(mod)
+summary(mod)
 
 # plot chalk brood binary
-ChalPrev <- ggplot(ds_long, aes(x=Percentage_UBO, y=chalk_binary, color=as.character(chalk_type))) +
+ggplot(ds_long, aes(x=Percentage_UBO, y=chalk_binary, color=as.character(chalk_type))) +
   geom_smooth(method="glm", se=FALSE, fullrange=TRUE, size = 2, method.args = list(family=binomial)) +
   geom_point(size=4) +
   ylab("Chalkbrood Binary") + # y axis label
   xlab("Percent UBO Response") + # x axis label
   theme_minimal(base_size = 20) + # size of the text and label ticks
   theme(legend.position = "none") +
-  scale_color_manual(values = c("#519E9A", "#E77624"), name=" ")  # color pallets option = A-H
+  scale_color_manual(values = c("#519E9A", "#9E519F"), name=" ")  # color pallets option = A-H
 
 
 
@@ -134,42 +134,45 @@ ggplot(ds_short, aes(x=Percentage_UBO, y=percent_chalk)) +
 # model for percentage ubo on frames
 mod <- lm(data = ds_short, percent_chalk ~ Percentage_UBO)
 Anova(mod)
+summary(mod)
 
 
 
 # CHALKBROOD CELLS BY UBO SCORE
 ####################################################################################################
 # plot chalk brood
-chalcLoad <- ggplot(ds_long, aes(x=Percentage_UBO, y= (chalkbrood + 1), 
+ds_long$uboScore <- ds_long$Percentage_UBO/100
+
+chalcLoad <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood + 1), 
                     color=as.character(chalk_type))) +
-  #geom_point(size=0) + 
   geom_smooth(method="lm", se=F, fullrange=TRUE, size = 2) +
   geom_point(size=4) +
   ylab("Chalkbrood (cells/frame)") + # y axis label
   xlab("Percent UBO Response") + # x axis label
   theme_minimal(base_size = 20) + # size of the text and label ticks
-  theme(legend.position = c(.65, .9)) + # place the legend at the top
-  scale_color_manual(values = c("#519E9A", "#E77624"), name=" ") + # color pallets option = A-H
+  theme(legend.position = c(.75, .9)) + # place the legend at the top
+  coord_cartesian(xlim = c(0, .5)) +
+  scale_color_manual(values = c("#9E519F","#519E9A"), name=" ") + # color pallets option = A-H
   guides(color = guide_legend(override.aes = list(label = ''))) +
+  annotate("segment", x = 0, xend = (104.7618/100), y = 6.37371, yend = 0,
+           colour = "black", size = 1.5, linetype=2) +
+  scale_x_continuous(labels = scales::percent) +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x)))
+chalcLoad 
 
-# glm for chalkbrood count data by ubo score and chalk type (poisson)
+
+# grand mean linear model
+mod <- lm(data = ds_long, (chalkbrood+1)~Percentage_UBO) 
+mod
+
+# glm for chalkbrood count data by ubo score and chalk type (poisson)\
+ds_long$chalk_type <- factor(ds_long$chalk_type, levels = c("White Chalk", "Black Chalk Spores"))
+
+# CHALKBROOD MODEL
 mod <- glm(data = ds_long, chalkbrood ~ Percentage_UBO * chalk_type, family = poisson(link = "log"))
 Anova(mod)
-
 summary(mod)
-
-
-
-# make a multi panel plot
-plot_grid(ChalPrev, chalcLoad,
-          labels = "AUTO", 
-          label_size = 20)
-
-
-
-
 
 
 
@@ -183,7 +186,7 @@ plot_grid(ChalPrev, chalcLoad,
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #################################################################################
 
-cleanDS_22 <- dplyr::select(cleanDS_22, year, beekeeper, sampling_event, lab_ID, assay_score, sampling_date, varroa_count, 
+cleanDS_22 <- dplyr::select(cleanDS_22, year, beekeeper, yard, sampling_event, lab_ID, assay_score, sampling_date, varroa_count, 
                             nosema_count, FKB_percentile)
 
 
@@ -212,6 +215,7 @@ cleanDS_22$anonBeek <- ifelse(cleanDS_22$beekeeper == "Andrew Munkres", "beekeep
                               ifelse(cleanDS_22$beekeeper == "Mike Palmer", "beekeeper 2", 
                                      ifelse(cleanDS_22$beekeeper == "Jack Rath", "beekeeper 3", NA
                                      )))
+
 
 
 ##############################################################################
@@ -260,12 +264,13 @@ nosPrev <- ggplot(nosePrevSum, aes(x=Month, y=mean, group=UBO_Char)) +
   geom_point(aes(color=UBO_Char), size=5)+
   geom_line(aes(color=UBO_Char), size=1.5) +
   theme_minimal(base_size = 20) +
-  theme(legend.position = c(.7,.95)) +
+  theme(legend.position = "none") +
   coord_cartesian(ylim = c(0, 1)) + 
   geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.1, color=UBO_Char))+
-  labs(x="Sampling Month", y="Nosema Prevalence", color=" ") +
+  labs(x="Sampling Month", y="Nosema Prevalence", color=" ", tag = "A") +
   scale_color_manual(values = c("#5071A0", "#E77624")) +
-  scale_y_continuous(labels = scales::percent)
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_discrete(guide = guide_axis(angle = 45))
 
 
 
@@ -278,31 +283,65 @@ contNos <-ggplot(nosemaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
   geom_point(aes(color=UBO_Char), size=5) +
   geom_line(aes(color=UBO_Char), size=1.5) +
   theme_minimal(base_size = 20) +
-  theme(legend.position = c(3,9)) +
+  theme(legend.position = "none") +
   geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
-  labs(x="Sampling Date", y="Nosema Load (spores/bee)", color=" ") +
+  labs(x="Sampling Date", y="Nosema Load (spores/bee)", color=" ", tag = "B") +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x))) +
-  scale_color_manual(values = c("#5071A0", "#E77624")) 
+  scale_color_manual(values = c("#5071A0", "#E77624")) +
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+leg <-ggplot(nosemaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
+  geom_point(aes(color=UBO_Char), size=5) +
+  geom_line(aes(color=UBO_Char), size=1.5) +
+  theme_minimal(base_size = 20) +
+  theme(legend.position = "top") +
+  geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
+  labs(x="Sampling Date", y="Nosema Load (spores/bee)", color="UBO Status:", tag = "B") +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x))) +
+  scale_color_manual(values = c("#5071A0", "#E77624"))
+  
+
+
 
 
 # make a multi panel plot
-plot_grid(nosPrev, contNos,
-          labels = "AUTO", 
-          label_size = 20)
+# get legend
+grobs <- ggplotGrob(leg)$grobs
+legend <- grobs[[which(sapply(grobs, function(x) x$name) == "guide-box")]]
 
-mod2 <- glmer(data = cleanDS_22, Nosema_binary ~ UBO_binary * Month + (1 | lab_ID), family = binomial(link="logit"))
+# plot figures
+plt <- grid.arrange(nosPrev, contNos, ncol=2)
+plot_grid(legend, plt, nrow = 2, rel_heights = c(.1, 1))
+
+# prevalence model
+mod2 <- glmer(data = cleanDS_22, Nosema_binary ~ UBO_binary * Month + (1 | yard), family = binomial(link="logit"))
 Anova(mod2)
 
-mod3 <- glmer(data = cleanDS_22, (1+nosema_count) ~ UBO_binary * Month + (1 | lab_ID), family = Gamma(link=identity))
+# load model
+mod3 <- glmer(data = cleanDS_22, (1+nosema_count) ~ UBO_binary * Month + (1 | yard), family = Gamma(link="log"))
 Anova(mod3)
 
+# multcomp
+cleanDS_22$inter <- interaction(cleanDS_22$UBO_binary, cleanDS_22$Month)
+interMod <- glmer(data = cleanDS_22, (1+nosema_count) ~ inter + (1 | yard), family = Gamma(link="log"))
+cht <- glht(interMod, linfct=mcp(inter = "Tukey"))
+summary(cht, test = univariate())
 
-cleanDS_22_noMonth <- cleanDS_22[!is.na(cleanDS_22$Month),]
+
+
+
+
+
 ##########################################################################
 # Nosema Scatter plot
 
+# make blocking var
+cleanDS_22$block <- paste0(cleanDS_22$beekeeper, "_", cleanDS_22$yard)
+
 # make month a factor
+cleanDS_22_noMonth <- cleanDS_22[!is.na(cleanDS_22$Month),]
 cleanDS_22_noMonth$Month <- factor(cleanDS_22_noMonth$Month, levels = c("June", "July", "August", "Sept."))
 
 ggplot(cleanDS_22_noMonth, aes(x=assay_score, y=((nosema_count*4000000)/80), color=Month, shape=Month)) +
@@ -319,28 +358,39 @@ ggplot(cleanDS_22_noMonth, aes(x=assay_score, y=((nosema_count*4000000)/80), col
 # facet wrap version
 ggplot(cleanDS_22_noMonth, aes(x=assay_score, y=((nosema_count*4000000)/80))) +
   geom_point(size=4) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#E77624") +
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#619B50") +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
   labs(x="UBO Score", y="Nosema Load (spores/bee)", color="Month") +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x))) +
-  facet_wrap(~Month)
+  facet_wrap(~Month) +
+  scale_x_continuous(labels = scales::percent, guide = guide_axis(angle = 45))
 
 
 
-# grand mean contrtollign for month
-x <- lmer(data = cleanDS_22_noMonth, log10(nosema_count+1) ~ assay_score + (1|Month))
+# grand mean controlling for month
+x <- lmer(data = cleanDS_22_noMonth, log10(nosema_count+1) ~ assay_score + (1|Month/block))
 Anova(x)
 summary(x)
 
 # month as a covariate
-y <- lm(data = cleanDS_22_noMonth, log10(nosema_count+1) ~ assay_score * Month)
+y <- glmer(data = cleanDS_22_noMonth, nosema_count+1 ~ assay_score * Month + (1| block), family = Gamma(link = "log"))
 Anova(y)
-summary(y)
 
-# binomial prevalence data
-mod3 <- glm(data = cleanDS_22_noMonth, Nosema_binary ~ assay_score * Month, family = binomial(link="logit"))
+
+# split month
+nosemaSplit <- split(cleanDS_22_noMonth, cleanDS_22_noMonth$Month)
+
+# regression for nosema
+mod <- glmer(data = nosemaSplit$June, nosema_count+1 ~ assay_score + (1|block), family = Gamma(link = "log"))
+mod1 <- glmer(data = nosemaSplit$July, nosema_count+1 ~ assay_score + (1|block), family = Gamma(link = "log"))
+mod2 <- glmer(data = nosemaSplit$August, nosema_count+1 ~ assay_score + (1|block), family = Gamma(link = "log"))
+mod3 <- glmer(data = nosemaSplit$Sept., nosema_count+1 ~ assay_score + (1|block), family = Gamma(link = "log"))
+
+Anova(mod)
+Anova(mod1)
+Anova(mod2)
 Anova(mod3)
 
 
@@ -361,8 +411,8 @@ virus_long$virus <- gsub('Copies.µl', '', virus_long$virus)
 
 # ubo scores and binary virus and mites and log load
 virus_long$virus_binary <- ifelse(virus_long$virus_load > 0, 1, 0)
-virus_long$ubo_binary_june <- ifelse(virus_long$June.UBO > 60, "UBO +", "UBO -")
-virus_long$ubo_binary_august <- ifelse(virus_long$August.UBO > 60, "UBO +", "UBO -")
+virus_long$ubo_binary_june <- ifelse(virus_long$June.UBO > 60, "UBO High", "UBO Low")
+virus_long$ubo_binary_august <- ifelse(virus_long$August.UBO > 60, "UBO High", "UBO Low")
 virus_long$mite_binary_june <-  ifelse(virus_long$June.Mite > 0, 1, 0) 
 virus_long$mite_binary_august <- ifelse(virus_long$August.Mite > 0, 1, 0)
 virus_long$logLoad <- log10(virus_long$virus_load + 1)
@@ -370,14 +420,16 @@ virus_long$logLoad <- log10(virus_long$virus_load + 1)
 virus_long <- virus_long[!is.na(virus_long$ubo_binary_august),]
 
 # grouped boxplot
-ggplot(data = virus_long, aes(x = virus, y = virus_load, fill = ubo_binary_august)) + 
+vld <- ggplot(data = virus_long, aes(x = virus, y = logLoad, fill = ubo_binary_august)) + 
   geom_boxplot() +
   theme_minimal(base_size = 20) +
-  theme(legend.position = "top") +
-  labs(x="Virus", y="Virus Load (copies/ul)", fill = "UBO Status:") +
+  theme(legend.position = "none") +
+  labs(x="Virus", y="Log10(load) (copies/ul)", fill = "UBO Status:", tag = "B") +
   scale_fill_manual(values = c("#5071A0", "#E77624")) +
-  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                labels = trans_format("log10", math_format(10^.x)))
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+
+
 
 # virus binary summary
 virusPrevSum <- virus_long %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
@@ -396,15 +448,28 @@ virusPrevSum[virusPrevSum$mean==0,]$lower <- NA
 virusPrevSum[virusPrevSum$mean==0,]$upper <- NA
 
 
-ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) + 
+vP <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) + 
   theme_minimal(base_size = 20) +
-  theme(legend.position = "top") +
-  labs(x="Virus", y="Virus Prevalence", fill = "UBO Status:") +
+  theme(legend.position = "none") +
+  labs(x="Virus", y="Virus Prevalence", fill = "UBO Status:", tag = "A") +
   geom_bar(stat="identity", position=position_dodge()) +
   geom_errorbar(aes(ymin=lower, ymax=upper), width=.2,
                 position=position_dodge(.9)) +
   scale_fill_manual(values = c("#5071A0", "#E77624")) +
-  scale_y_continuous(labels = scales::percent)
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+# extract legend
+leg <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) + 
+  theme_minimal(base_size = 20) +
+  theme(legend.position = "top") +
+  labs(x="Virus", y="Virus Prevalence", fill = "UBO Status:", tag = "A") +
+  geom_bar(stat="identity", position=position_dodge()) +
+  geom_errorbar(aes(ymin=lower, ymax=upper), width=.2,
+                position=position_dodge(.9)) +
+  scale_fill_manual(values = c("#5071A0", "#E77624")) +
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_discrete(guide = guide_axis(angle = 45))
 
 # make data wide
 virus_wide <- select(virus_long, -virus_binary, -ubo_binary_june, -ubo_binary_august,-mite_binary_june, -virus_load)
@@ -412,34 +477,30 @@ virus_wide <- virus_wide %>% pivot_wider(names_from = virus, values_from = logLo
 virus_wide$ubo_binary_june <- ifelse(virus_wide$June.UBO > 60, "UBO +", "UBO -")
 virus_wide$ubo_binary_august <- ifelse(virus_wide$August.UBO > 60, "UBO +", "UBO -")
 
-res.man <- manova(cbind(June.Mite,August.Mite,DWV.A,DWV.B,LSV,SBV,BQCV,IAPV) ~ ubo_binary_august, data = virus_wide)
-summary.aov(res.man)
 
 
 
 
+# get legend
+grobs <- ggplotGrob(leg)$grobs
+legend <- grobs[[which(sapply(grobs, function(x) x$name) == "guide-box")]]
 
-ggplot(virus_long, aes(x=August.UBO, y=virus_load, color=virus)) +
+# plot figures
+plt <- grid.arrange(vP, vld, ncol=2)
+plot_grid(legend, plt, nrow = 2, rel_heights = c(.1, 1))
+
+
+ggplot(virus_long, aes(x=(June.UBO/100), y=virus_load)) +
   geom_point(size=4) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 1.9) +
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#619B50") +
   theme_minimal(base_size = 20) +
   theme(legend.position = c(.8,.8)) +
-  labs(x="UBO Score", y="Virus Load (copies/bee)", color="Virus") +
+  labs(x="UBO Score", y="Virus Load (copies/bee)", ) +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x))) +
-  scale_color_manual(values = c("#9E519F","#519E9A", "#5071A0", "#E77624", "#EE2E27", "#619B50")) 
+  facet_wrap(vars(virus)) +
+  scale_x_continuous(labels = scales::percent, guide = guide_axis(angle = 45))
 
-
-
-ggplot(virus_long, aes(x=June.UBO, y=virus_load)) +
-  geom_point(size=4) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#E77624") +
-  theme_minimal(base_size = 20) +
-  theme(legend.position = c(.8,.8)) +
-  labs(x="UBO Score", y="Virus Load (copies/bee)") +
-  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                labels = trans_format("log10", math_format(10^.x))) +
-  facet_wrap(vars(virus))
 
 
 # split dataframe by virus and run regression on log virus load
