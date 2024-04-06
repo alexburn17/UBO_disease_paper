@@ -420,20 +420,21 @@ virus_long$logLoad <- log10(virus_long$virus_load + 1)
 virus_long <- virus_long[!is.na(virus_long$ubo_binary_august),]
 
 # grouped boxplot
-vld <- ggplot(data = virus_long, aes(x = virus, y = logLoad, fill = ubo_binary_august)) + 
+vld <- ggplot(data = virus_long, aes(x = virus, y = logLoad, fill = ubo_binary_june)) + 
   geom_boxplot() +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
   labs(x="Virus", y="Log10(load) (copies/ul)", fill = "UBO Status:", tag = "B") +
   scale_fill_manual(values = c("#5071A0", "#E77624")) +
-  scale_x_discrete(guide = guide_axis(angle = 45))
+  scale_x_discrete(guide = guide_axis(angle = 45))+
+  annotate("text", x = c(1:6), y = c(9.6, 8,10,9,8.7,8.4), label = c("ns", "*", "***", "**", "***", "ns"), size = 6)
 
-
+vld
 
 
 # virus binary summary
 virusPrevSum <- virus_long %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
-  group_by(virus, ubo_binary_august) %>% # pick variables to group by
+  group_by(virus, ubo_binary_june) %>% # pick variables to group by
   dplyr::summarise(
     mean = mean(virus_binary, na.rm=T), # mean
     n = length(virus_binary),
@@ -448,7 +449,7 @@ virusPrevSum[virusPrevSum$mean==0,]$lower <- NA
 virusPrevSum[virusPrevSum$mean==0,]$upper <- NA
 
 
-vP <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) + 
+vP <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_june)) + 
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
   labs(x="Virus", y="Virus Prevalence", fill = "UBO Status:", tag = "A") +
@@ -457,10 +458,12 @@ vP <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) +
                 position=position_dodge(.9)) +
   scale_fill_manual(values = c("#5071A0", "#E77624")) +
   scale_y_continuous(labels = scales::percent)+
-  scale_x_discrete(guide = guide_axis(angle = 45))
+  scale_x_discrete(guide = guide_axis(angle = 45)) +
+  annotate("text", x = c(1:6), y = c(1.06, .9,.98,.88,1.05,1.06), label = c("ns", "*", "***", "ns", "***", "ns"), size = 6)
+vP
 
 # extract legend
-leg <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_august)) + 
+leg <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_june)) + 
   theme_minimal(base_size = 20) +
   theme(legend.position = "top") +
   labs(x="Virus", y="Virus Prevalence", fill = "UBO Status:", tag = "A") +
@@ -490,6 +493,8 @@ plt <- grid.arrange(vP, vld, ncol=2)
 plot_grid(legend, plt, nrow = 2, rel_heights = c(.1, 1))
 
 
+
+
 ggplot(virus_long, aes(x=(June.UBO/100), y=virus_load)) +
   geom_point(size=4) + 
   geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#619B50") +
@@ -506,10 +511,44 @@ ggplot(virus_long, aes(x=(June.UBO/100), y=virus_load)) +
 # split dataframe by virus and run regression on log virus load
 splitVirus <- split(virus_long, virus_long$virus)
 
+
+# VIRUS PREB - UBO BINARY
+mod6 <- glm(data = splitVirus$BQCV, virus_binary ~ June.UBO, family = binomial(link = "logit"))
+mod7 <- glm(data = splitVirus$DWV.A, virus_binary ~ June.UBO, family = binomial(link = "logit"))
+mod8 <- glm(data = splitVirus$DWV.B, virus_binary ~ June.UBO, family = binomial(link = "logit"))
+mod9 <- glm(data = splitVirus$IAPV, virus_binary ~ June.UBO, family = binomial(link = "logit"))
+mod10 <- glm(data = splitVirus$LSV, virus_binary ~ June.UBO, family = binomial(link = "logit"))
+mod11 <- glm(data = splitVirus$SBV, virus_binary ~ June.UBO, family = binomial(link = "logit"))
+
+Anova(mod6)
+Anova(mod7)
+Anova(mod8)
+Anova(mod9)
+Anova(mod10)
+Anova(mod11)
+
+# VIRUS LOAD - UBO BINARY
+mod12 <- lm(data = splitVirus$BQCV, logLoad ~ June.UBO)
+mod13 <- lm(data = splitVirus$DWV.A, logLoad ~ June.UBO)
+mod14 <- lm(data = splitVirus$DWV.B, logLoad ~ June.UBO)
+mod15 <- lm(data = splitVirus$IAPV, logLoad ~ June.UBO)
+mod16 <- lm(data = splitVirus$LSV, logLoad ~ June.UBO)
+mod17 <- lm(data = splitVirus$SBV, logLoad ~ June.UBO)
+
+Anova(mod12)
+Anova(mod13)
+Anova(mod14)
+Anova(mod15)
+Anova(mod16)
+Anova(mod17)
+
+
+
+# VIRUS LOAD - continuous data:
 mod <- lm(data = splitVirus$BQCV, logLoad ~ June.UBO)
 mod1 <- lm(data = splitVirus$DWV.B, logLoad ~ June.UBO)
 mod2 <- lm(data = splitVirus$DWV.A, logLoad ~ June.UBO)
-mod3 <- lm(data = splitVirus$IAPV, logLoad ~ June.UBO)
+mod3 <- lm(data = splitVirus$IAPV, logLoad~ June.UBO)
 mod4 <- lm(data = splitVirus$LSV, logLoad ~ June.UBO)
 mod5 <- lm(data = splitVirus$SBV, logLoad ~ June.UBO)
 
@@ -519,7 +558,6 @@ Anova(mod2)
 Anova(mod3)
 Anova(mod4)
 Anova(mod5)
-
 
 
 
