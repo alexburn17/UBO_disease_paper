@@ -1,7 +1,7 @@
 # UBO Joint Disease Project
 # P. Alexander Burnham
 # 31 January 2023
-# Last Modified: 13 November 2023
+# Last Modified: 1 May 2024
 
 # install libraries
 library(dplyr)
@@ -16,14 +16,13 @@ library(scales)
 library(ggmosaic)
 library(wesanderson)
 library(multcomp)
+library(gridExtra)
 
 # set directory:
 setwd("~/Documents/GitHub/UBO_disease_paper")
 
 # read in data
-#ds <- read.csv("data/Chalkbrood_Aus.csv", header = TRUE, stringsAsFactors = FALSE)
 ds <- read.csv("data/Chalkbrood_Aus.csv", header = TRUE, stringsAsFactors = FALSE)
-
 ds23 <- read.csv("data/UBO_Data_2023.csv", header = TRUE, stringsAsFactors = FALSE)
 
 # 2022 data
@@ -39,7 +38,7 @@ cleanDS_22 <- ds23[ds23$year == 2022,]
 #################################################################################
 
 
-# select relavant variables
+# select relevant variables
 ds <- dplyr::select(ds, Test_No, Total_Brood, Brood_with_Chalk, White_Chalk, Spore_Dark_Chalk, Empty_Cells, Total_Cells, Cleared_Cells)
 
 ds$Percentage_UBO <- ((ds$Cleared_Cells - ds$Empty_Cells) / ds$Total_Cells) * 100
@@ -188,10 +187,6 @@ plot_grid(plt + draw_label("UBeeO Score", x=0.55, y=  0, vjust=-.8, angle= 0, si
             draw_label("Chalkbrood (cells/colony)", x=  0, y=0.5, vjust= 1.5, angle=90, size = 20))
 
 
-
-
-
-
 trans <- function(x){pmin(x,55) + .3*pmax(x-55,0)}
 yticks <- c(0, 25, 50, 100, 150, 200)
 
@@ -207,10 +202,6 @@ ggplot(data=chalkPlot, aes(x=uboScore, y = (chalkbrood))) +
   geom_rect(aes(xmin=0, xmax=.5, ymin=55, ymax=60), fill="white") +
   scale_y_continuous(limits=c(0,100), breaks=trans(yticks), labels=yticks)
 
-
-163-55
-
-108*.3 +55
 
 
 ggplot(chalkPlot, aes(x=uboScore, y = (chalkbrood), 
@@ -234,17 +225,6 @@ ggplot(chalkPlot, aes(x=uboScore, y = (chalkbrood),
 # calculate average slope
 x <- lm(data = ds_long, chalkbrood ~ uboScore)
 summary(x)
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -402,9 +382,6 @@ leg <-ggplot(nosemaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
                 labels = trans_format("log10", math_format(10^.x))) +
   scale_color_manual(values = c("#5071A0", "#E77624"))
   
-
-
-library(gridExtra)
 
 # make a multi panel plot
 # get legend
@@ -613,7 +590,7 @@ ggplot(virus_long, aes(x=(June.UBO/100), y=(virus_load+1))) +
 splitVirus <- split(virus_long, virus_long$virus)
 
 
-# VIRUS PREB - UBO BINARY
+# VIRUS PREV - UBO BINARY
 mod6 <- glm(data = splitVirus$BQCV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
 mod7 <- glm(data = splitVirus$DWV.A, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
 mod8 <- glm(data = splitVirus$DWV.B, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
@@ -644,10 +621,7 @@ Anova(mod16)
 Anova(mod17)
 
 
-mod16 <- lm(data = splitVirus$DWV.B, (virus_load) ~ ubo_binary_june)
-
-
-# VIRUS LOAD - continuous data:
+# VIRUS LOAD - continuous UBO:
 mod <- lm(data = splitVirus$BQCV, logLoad ~ June.UBO)
 mod2 <- lm(data = splitVirus$DWV.A, logLoad ~ June.UBO)
 mod1 <- lm(data = splitVirus$DWV.B, logLoad ~ June.UBO)
@@ -662,6 +636,7 @@ Anova(mod3)
 Anova(mod4)
 Anova(mod5)
 
+# NOTE: consider benjamini-hochberg to reduce FDR (have to think about hypothesis a bit more to check groupings)
 
 
 
