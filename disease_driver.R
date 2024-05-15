@@ -149,9 +149,9 @@ bot <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood),
   geom_point(size=6) +
   ylab(" ") + # y axis label
   xlab(" ") + # x axis label
-  theme_minimal(base_size = 20) + # size of the text and label ticks
+  theme_bw(base_size = 20) + # size of the text and label ticks
   theme(legend.position = "none") + # place the legend at the top
-  coord_cartesian(xlim = c(0, .5), ylim = c(0, 26)) +
+  coord_cartesian(xlim = c(0, .5), ylim = c(0, 50)) +
   scale_linetype_manual(values = c(1, 3), name=" ", guide = FALSE) + # color pallets option = A-H
   scale_shape_manual(values = c(20, 1), name=" ") + 
   guides(color = guide_legend(override.aes = list(label = ''))) +
@@ -168,59 +168,29 @@ summary(x)
 top <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood), 
                            linetype=as.character(chalk_type), shape = as.character(chalk_type))) +
   geom_point(size=6) +
-  theme_minimal(base_size = 20) + # size of the text and label ticks
-  theme(legend.position = c(.75, .75),
+  theme_bw(base_size = 20) + # size of the text and label ticks
+  theme(legend.position = c(.75, .5),
         axis.title.x=element_blank(),
         axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
+        axis.ticks.x=element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA),
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black")) +
   coord_cartesian(xlim = c(0, .5)) +
   ylab(" ") + # y axis label
-  scale_linetype_manual(values = c(1, 3), name=" ", guide = FALSE) + # color pallets option = A-H
-  scale_shape_manual(values = c(20, 1), name=" ") + 
+  scale_linetype_manual(values = c(1, 3), name=NULL, guide = FALSE) + # color pallets option = A-H
+  scale_shape_manual(values = c(20, 1), name=NULL) + 
   guides(color = guide_legend(override.aes = list(label = ''))) +
-  scale_y_continuous(limits = c(27, 200), breaks = seq(30, 200, by = 60))
+  scale_y_continuous(limits = c(150, 200), breaks = seq(150, 200, by = 25))
 top
 
-plt <- plot_grid(top, bot, ncol = 1, rel_heights = c(.40, 1), align = "v")
+plt <- plot_grid(top, bot, ncol = 1, rel_heights = c(.30, 1), align = "v")
 
 plot_grid(plt + draw_label("UBeeO Score", x=0.55, y=  0, vjust=-.8, angle= 0, size = 20) +
-            draw_label("Chalkbrood (cells/colony)", x=  0, y=0.5, vjust= 1.5, angle=90, size = 20))
-
-
-trans <- function(x){pmin(x,55) + .3*pmax(x-55,0)}
-yticks <- c(0, 25, 50, 100, 150, 200)
-
-#Transform the data onto the display scale
-ds_long$mean <- trans(ds_long$chalkbrood)
-
-
-chalkPlot <- ds_long
-chalkPlot[chalkPlot$chalkbrood == 163,]$chalkbrood <- 87.4
-
-ggplot(data=chalkPlot, aes(x=uboScore, y = (chalkbrood))) +
-  geom_point(size=6) +
-  geom_rect(aes(xmin=0, xmax=.5, ymin=55, ymax=60), fill="white") +
-  scale_y_continuous(limits=c(0,100), breaks=trans(yticks), labels=yticks)
+            draw_label("Chalkbrood (cells/colony)", x=  0, y=0.55, vjust= 1.5, angle=90, size = 20))
 
 
 
-ggplot(chalkPlot, aes(x=uboScore, y = (chalkbrood), 
-                    linetype=as.character(chalk_type), shape = as.character(chalk_type))) +
-  geom_point(size=6) +
-  ylab("Chalkbrood (cells/frame)") + # y axis label
-  xlab("UBeeO Score") + # x axis label
-  theme_minimal(base_size = 20) + # size of the text and label ticks
-  theme(legend.position = c(.75, .9)) + # place the legend at the top
-  coord_cartesian(xlim = c(0, .5), ylim = c(0, 100)) +
-  scale_linetype_manual(values = c(1, 3), name=" ", guide = FALSE) + # color pallets option = A-H
-  scale_shape_manual(values = c(20, 1), name=" ") + 
-  geom_smooth(method="lm", se=F, fullrange=TRUE, size = 2, color = "black") +
-  guides(color = guide_legend(override.aes = list(label = ''))) +
-  annotate("segment", x = 0, xend = (0.8833005), y = 5.374, yend = 0,
-           colour = "darkturquoise", size = 1.2, linetype=1) +
-  scale_x_continuous(labels = scales::percent) +
-  scale_y_continuous(limits=c(0,100), breaks=trans(yticks), labels=yticks)
-  
 
 # calculate average slope
 x <- lm(data = ds_long, chalkbrood ~ uboScore)
@@ -444,11 +414,11 @@ ggplot(nosPos, aes(x=assay_score, y=1+((nosema_count*4000000)/80))) +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
   labs(x="UBeeO Score", y="Nosema Load (spores/bee)", color="Month") +
-  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                labels = trans_format("log10", math_format(10^.x))) +
-  #facet_wrap(~Month) +
-  scale_x_continuous(labels = scales::percent, guide = guide_axis(angle = 45))
-
+  scale_y_log10(
+    breaks = scales::trans_breaks("log10", function(x) 10^x, n = 2),
+    labels = scales::trans_format("log10", scales::math_format(10^.x))
+  ) +
+  scale_x_continuous(labels = scales::percent)
 
 
 
