@@ -22,7 +22,9 @@ library(gridExtra)
 setwd("~/Documents/GitHub/UBO_disease_paper")
 
 # read in data
-ds <- read.csv("data/Chalkbrood_Aus.csv", header = TRUE, stringsAsFactors = FALSE)
+#dstest <- read.csv("data/Chalkbrood_Aus.csv", header = TRUE, stringsAsFactors = FALSE)
+ds <- read.csv("data/Final_Chalkbrood_Results_update.csv", header = TRUE, stringsAsFactors = FALSE)
+
 ds23 <- read.csv("data/UBO_Data_2023.csv", header = TRUE, stringsAsFactors = FALSE)
 
 # 2022 data
@@ -91,9 +93,16 @@ UBO_chalk_brood <- ds_long %>% # operate on the dataframe (ds_2021) and assign t
     
   ) 
 
+# overall mean
+mean(ds_long$chalk_binary)
+# low mean
+mean(ds_long[ds_long$UBO_binary == "low UBeeO",]$chalk_binary)
+# high mean
+mean(ds_long[ds_long$UBO_binary == "high UBeeO",]$chalk_binary)
 
-
-
+# model for binary chalk by ubo score
+mod <- glm(data = ds_long, chalk_binary ~ UBO_binary * chalk_type, binomial(link = "logit"))
+Anova(mod)
 
 # PREVALENCE OF CHALKBROOD BY UBO SCORE
 ####################################################################################################
@@ -113,7 +122,19 @@ ggplot(ds_long, aes(x=Percentage_UBO, y=chalk_binary, color=as.character(chalk_t
   theme(legend.position = "none") +
   scale_color_manual(values = c("#519E9A", "#9E519F"), name=" ")  # color pallets option = A-H
 
+# Chalkbrood prevalence
+# ubo and chalk CONTINUOUS
+sum <- ds_long %>% # operate on the dataframe (ds_2021) and assign to new object (pltN)
+  group_by(UBO_binary, chalk_type) %>% # pick variables to group by
+  summarise(
+    mean = mean(chalk_binary, na.rm=T), # mean
+    n = length(chalk_binary),
+  ) 
+sum
 
+mod <- glm(data = ds_long, chalk_binary ~ UBO_binary * chalk_type, family = binomial(link = "logit"))
+
+Anova(mod) 
 
 
 # PERCENT INFECTED FRAMES BY UBO SCORE
@@ -226,7 +247,8 @@ mod <- glm(data = ds_long, chalkbrood ~ Percentage_UBO * chalk_type, family = po
 Anova(mod)
 summary(mod)
 
-
+# aver spore load
+mean(ds_long$chalkbrood)
 
 
 
