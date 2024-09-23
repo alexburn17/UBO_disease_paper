@@ -234,9 +234,86 @@ ggplot(xdf, aes(x=uboScore, y = logChalk)) +
   scale_x_continuous(labels = scales::percent) +
   #  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
   #                labels = trans_format("log10", math_format(10^.x))) + 
-  geom_smooth(method="loess", se=F, fullrange=TRUE, size = 2, color = "black")
+  geom_smooth(method="nls", formula=y~SSasympOff(x, a, b, c))
 
 
+
+
+
+log.fit <- function(dep, ind, yourdata){
+  #Self-starting ...
+  
+  y <- yourdata[, dep]
+  x <- yourdata[, ind]
+  
+  log.ss <- nls(y ~ SSlogis(x, phi1, phi2, phi3))
+  
+  #C
+  C <- summary(log.ss)$coef[1]
+  #a
+  A <- exp((summary(log.ss)$coef[2]) * (1/summary(log.ss)$coef[3]))
+  #k
+  K <- (1 / summary(log.ss)$coef[3])
+  
+  plot(y ~ x, main = "Logistic Function", xlab=ind, ylab=dep)
+  lines(0:max(x), predict(log.ss, data.frame(x=0:max(x))), col="red")
+  
+  r1 <- sum((x - mean(x))^2)
+  r2 <- sum(residuals(log.ss)^2)
+  
+  r_sq <- (r1 - r2) / r1
+  
+  out <- data.frame(cbind(c(C=C, a=A, k=K, R.value=sqrt(r_sq))))
+  names(out)[1] <- "Logistic Curve"
+  
+  return(out)
+}
+
+
+log.fit(dep = "chalkbrood", ind = "uboScore", yourdata = ds_long)
+
+
+
+model = nls(chalkbrood+1 ~ SSlogis(uboScore+1, a, b, c), data = ds_long)
+
+y <- ds_long$chalkbrood
+x <- ds_long$uboScore
+
+
+
+linear_model1 <- lm(y~x) 
+linear_model2 <- lm(y~poly(x,2,raw=TRUE)) 
+linear_model3 <- lm(y~poly(x,3,raw=TRUE)) 
+linear_model4 <- lm(y~poly(x,4,raw=TRUE)) 
+linear_model5 <- lm(y~poly(x,5,raw=TRUE))
+
+summary(linear_model1)$adj.r.squared 
+summary(linear_model2)$adj.r.squared 
+summary(linear_model3)$adj.r.squared 
+summary(linear_model4)$adj.r.squared 
+summary(linear_model5)$adj.r.squared
+
+
+
+# Create best linear model 
+best_model <- lm(y~exp(x))
+
+# create a basic scatterplot  
+plot(x, y) 
+
+# define x-axis values 
+x_axis <- seq(0, 1, length=100) 
+
+# plot best model 
+lines(x_axis, predict(best_model, data.frame(x=x_axis)), col='green')
+
+out <- predict(best_model, data.frame(x=x_axis))
+
+infl <- c(FALSE, diff(diff(out)>0)!=0)
+
+points(x_axis[infl ], out[infl ], col="red")
+
+plot(out)
 
 # glm for chalkbrood count data by ubo score and chalk type (poisson)\
 ds_long$chalk_type <- factor(ds_long$chalk_type, levels = c("White Chalk", "Black Chalk Spores"))
