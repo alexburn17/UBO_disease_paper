@@ -17,6 +17,8 @@ library(ggmosaic)
 library(wesanderson)
 library(multcomp)
 library(gridExtra)
+library(chngpt)
+library(mcp)
 
 # set directory:
 setwd("~/Documents/GitHub/UBO_disease_paper")
@@ -270,52 +272,32 @@ log.fit <- function(dep, ind, yourdata){
 }
 
 
-log.fit(dep = "chalkbrood", ind = "uboScore", yourdata = ds_long)
+ds_long$uboScore <- ds_long$uboScore*100
+
+model_c = list(
+  chalkbrood ~ 1 + uboScore, # intercept + slope
+  1 ~ 0 + uboScore  # joined slope, varying by id
+)
 
 
 
-model = nls(chalkbrood+1 ~ SSlogis(uboScore+1, a, b, c), data = ds_long)
-
-y <- ds_long$chalkbrood
-x <- ds_long$uboScore
-
-
-
-linear_model1 <- lm(y~x) 
-linear_model2 <- lm(y~poly(x,2,raw=TRUE)) 
-linear_model3 <- lm(y~poly(x,3,raw=TRUE)) 
-linear_model4 <- lm(y~poly(x,4,raw=TRUE)) 
-linear_model5 <- lm(y~poly(x,5,raw=TRUE))
-
-summary(linear_model1)$adj.r.squared 
-summary(linear_model2)$adj.r.squared 
-summary(linear_model3)$adj.r.squared 
-summary(linear_model4)$adj.r.squared 
-summary(linear_model5)$adj.r.squared
+model_c = list(
+  chalkbrood ~ 1,  # plateau (int_1)
+  ~ 1     # plateau (int_2)
+)
 
 
 
-# Create best linear model 
-best_model <- lm(y~exp(x))
+fit_chalk = mcp::mcp(model_c, data = ds_long, par_x = "uboScore", family = poisson(), iter = 100000) 
+summary(fit_chalk)
+y <- plot(fit_chalk)
 
-# create a basic scatterplot  
-plot(x, y) 
+y + theme_minimal(base_size = 20) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="Chalkbrood (cells/colony)", )
 
-# define x-axis values 
-x_axis <- seq(0, 1, length=100) 
 
-# plot best model 
-lines(x_axis, predict(best_model, data.frame(x=x_axis)), col='green')
-
-out <- predict(best_model, data.frame(x=x_axis))
-
-infl <- c(FALSE, diff(diff(out)>0)!=0)
-
-points(x_axis[infl ], out[infl ], col="red")
-
-plot(out)
-
-# glm for chalkbrood count data by ubo score and chalk type (poisson)\
+# glmfit_chalk# glm for chalkbrood count data by ubo score and chalk type (poisson)\
 ds_long$chalk_type <- factor(ds_long$chalk_type, levels = c("White Chalk", "Black Chalk Spores"))
 ds_long$ID <- as.character(ds_long$Test_No)
 
@@ -519,6 +501,27 @@ ggplot(nosPos, aes(x=assay_score, y=1+((nosema_count*4000000)/80))) +
   ) +
   scale_x_continuous(labels = scales::percent)
 
+z <- dplyr::select(nosPos, nosema_count, assay_score)
+z <- z[complete.cases(z),]
+
+z$nosema_count_scaled <- ((z$nosema_count*4000000)/80)
+z$assay_score <- z$assay_score * 100
+
+model_n = list(
+  nosema_count_scaled ~ 1,  # plateau (int_1)
+  ~ 1     # plateau (int_2)
+)
+
+
+fit_nos = mcp::mcp(model_n, data = z, par_x = "assay_score", family = poisson(), iter = 10000) 
+summary(fit_nos)
+t <- plot(fit_nos)
+
+t + theme_minimal(base_size = 20) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="Vairimorpha (spores/bee)", )
+
+
 
 
 # month as a covariate
@@ -707,6 +710,121 @@ Anova(mod5)
 
 # NOTE: consider benjamini-hochberg to reduce FDR (have to think about hypothesis a bit more to check groupings)
 
+# DWV-A, DWV-B, IAPV, LSV
+# Point Estimate - THRESHOLD - Viruses
+model_slope = list(
+  logLoad ~ 1 + June.UBO, # intercept + slope
+  1 ~ 0 + June.UBO  # joined slope, varying by id
+)
+
+fit_DWV.A = mcp::mcp(model_slope, data = splitVirus$DWV.A, par_x = "June.UBO", iter = 100000)
+fit_DWV.B = mcp::mcp(model_slope, data = splitVirus$DWV.B, par_x = "June.UBO", iter = 100000)
+fit_IAPV = mcp::mcp(model_slope, data = splitVirus$IAPV, par_x = "June.UBO", iter = 100000) 
+fit_LSV = mcp::mcp(model_slope, data = splitVirus$LSV, par_x = "June.UBO", iter = 100000) 
+
+summary(fit_DWV.A)
+summary(fit_DWV.B)
+summary(fit_IAPV)
+summary(fit_LSV)
+
+A <- plot(fit_DWV.A)
+B <- plot(fit_DWV.B)
+C <- plot(fit_IAPV)
+D <- plot(fit_LSV)
+
+A <- A + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="DWV.A Load (copies/ul)", )
+B <- B + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="DWV.B Load (copies/ul)", )
+C <- C + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="IAPV Load (copies/ul)", )
+D <- D + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="LSV Load (copies/ul)", )
+
+plot_grid(A,B,C,D, ncol=2, labels = c('A', 'B', 'C', 'D'), label_size = 17)
 
 
+
+################ Virus Shelf Poisson ##################
+model_shelf = list(
+  virus_load ~ 1,  # plateau (int_1)
+  ~ 1     # plateau (int_2)
+)
+
+
+fit_DWV.A_shelf = mcp::mcp(model_shelf, data = splitVirus$DWV.A, par_x = "June.UBO", family = poisson(), iter = 100000)
+fit_DWV.B_shelf = mcp::mcp(model_shelf, data = splitVirus$DWV.B, par_x = "June.UBO", family = poisson(), iter = 100000)
+fit_IAPV_shelf = mcp::mcp(model_shelf, data = splitVirus$IAPV, par_x = "June.UBO", family = poisson(), iter = 100000) 
+fit_LSV_shelf = mcp::mcp(model_shelf, data = splitVirus$LSV, par_x = "June.UBO", family = poisson(), iter = 100000) 
+
+summary(fit_DWV.A_shelf)
+summary(fit_DWV.B_shelf)
+summary(fit_IAPV_shelf)
+summary(fit_LSV_shelf)
+
+
+A <- plot(fit_DWV.A_shelf)
+B <- plot(fit_DWV.B_shelf)
+C <- plot(fit_IAPV_shelf)
+D <- plot(fit_LSV_shelf)
+
+A <- A + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="DWV.A Load (copies/ul)", )
+B <- B + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="DWV.B Load (copies/ul)", )
+C <- C + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="IAPV Load (copies/ul)", )
+D <- D + theme_minimal(base_size = 17) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="LSV Load (copies/ul)", )
+
+plot_grid(A,B,C,D, ncol=2, labels = c('A', 'B', 'C', 'D'), label_size = 17)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Mite Data from Kaira's Paper:
+mites <- read.csv("data/PrashantData_UntreatedColonies.csv", header = TRUE, stringsAsFactors = FALSE)
+
+mites_clean <- dplyr::select(mites, June.UBO, August.Mites)
+mites_clean$augustRound <- round(mites_clean$August.Mites)
+
+mites_clean <- mites_clean[complete.cases(mites_clean),]
+
+
+# Rounded August Mites Shelf Model
+round_model_shelf = list(
+  augustRound ~ 1,  # plateau (int_1)
+  ~ 1     # plateau (int_2)
+)
+
+
+# mite model, results and plot
+model_shelf_round = mcp::mcp(round_model_shelf, data = mites_clean, par_x = "June.UBO", family = poisson(), iter = 100000)
+summary(model_shelf_round)
+x <- plot(model_shelf_round)
+
+x + theme_minimal(base_size = 20) +
+  geom_point(size = 3.5) +
+  labs(x="UBeeO Score (%)", y="Mites/100 Bees", )
 
