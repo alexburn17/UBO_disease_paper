@@ -398,7 +398,7 @@ nosPrev <- ggplot(nosePrevSum, aes(x=Month, y=mean, group=UBO_Char)) +
   theme(legend.position = "none") +
   coord_cartesian(ylim = c(0, 1)) + 
   geom_errorbar(aes(ymin = lower, ymax = upper, width = 0.1, color=UBO_Char))+
-  labs(x="Sampling Month", y="Nosema Prevalence", color=" ", tag = "A") +
+  labs(x="Sampling Month", y="Vairimorpha Prevalence", color=" ", tag = "A") +
   scale_color_manual(values = c("#5071A0", "#E77624")) +
   scale_y_continuous(labels = scales::percent) +
   scale_x_discrete(guide = guide_axis(angle = 45))
@@ -416,7 +416,7 @@ contNos <-ggplot(nosemaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
   geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
-  labs(x="Sampling Date", y="Nosema Load (spores/bee)", color=" ", tag = "B") +
+  labs(x="Sampling Date", y="Vairimorpha Load (spores/bee)", color=" ", tag = "B") +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x))) +
   scale_color_manual(values = c("#5071A0", "#E77624")) +
@@ -428,7 +428,7 @@ leg <-ggplot(nosemaLoad_Sum, aes(x=Month, y=mean, group=UBO_Char)) +
   theme_minimal(base_size = 20) +
   theme(legend.position = "top") +
   geom_errorbar(aes(ymin = mean-se, ymax = mean+se, width = 0.1 ,color=UBO_Char))+
-  labs(x="Sampling Date", y="Nosema Load (spores/bee)", color="UBeeO Status:", tag = "B") +
+  labs(x="Sampling Date", y="Vairimorpha Load (spores/bee)", color="UBeeO Status:", tag = "B") +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x))) +
   scale_color_manual(values = c("#5071A0", "#E77624"))
@@ -494,7 +494,7 @@ ggplot(nosPos, aes(x=assay_score, y=1+((nosema_count*4000000)/80))) +
   geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#619B50") +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
-  labs(x="UBeeO Score", y="Nosema Load (spores/bee)", color="Month") +
+  labs(x="UBeeO Score", y="Vairimorpha Load (spores/bee)", color="Month") +
   scale_y_log10(
     breaks = scales::trans_breaks("log10", function(x) 10^x, n = 2),
     labels = scales::trans_format("log10", scales::math_format(10^.x))
@@ -574,7 +574,7 @@ vld <- ggplot(data = virus_long, aes(x = virus, y = logLoad, fill = ubo_binary_j
   geom_boxplot() +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
-  labs(x="Virus", y="Log10(load) (copies/ul)", fill = "UBeeO Status:", tag = "B") +
+  labs(x=NULL, y="Log10(virus load) (copies/ul)", fill = "UBeeO Status:", tag = "B") +
   scale_fill_manual(values = c("#5071A0", "#E77624")) +
   scale_x_discrete(guide = guide_axis(angle = 45))+
   annotate("text", x = c(1:6), y = c(9.6, 8,10,9,8.7,8.4), label = c("ns", "*", "**", "**", "ns", "ns"), size = 6)
@@ -602,7 +602,7 @@ virusPrevSum[virusPrevSum$mean==0,]$upper <- NA
 vP <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_june)) + 
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
-  labs(x="Virus", y="Virus Prevalence", fill = "UBeeO Status:", tag = "A") +
+  labs(x=NULL, y="Virus Prevalence", fill = "UBeeO Status:", tag = "A") +
   geom_bar(stat="identity", position=position_dodge()) +
   geom_errorbar(aes(ymin=lower, ymax=upper), width=.2,
                 position=position_dodge(.9)) +
@@ -616,7 +616,7 @@ vP
 leg <- ggplot(virusPrevSum, aes(x=virus, y=mean, fill=ubo_binary_june)) + 
   theme_minimal(base_size = 20) +
   theme(legend.position = "top") +
-  labs(x="Virus", y="Virus Prevalence", fill = "UBeeO Status:", tag = "A") +
+  labs(x=NULL, y="Virus Prevalence", fill = "UBeeO Status:", tag = "A") +
   geom_bar(stat="identity", position=position_dodge()) +
   geom_errorbar(aes(ymin=lower, ymax=upper), width=.2,
                 position=position_dodge(.9)) +
@@ -827,4 +827,28 @@ x <- plot(model_shelf_round)
 x + theme_minimal(base_size = 20) +
   geom_point(size = 3.5) +
   labs(x="UBeeO Score (%)", y="Mites/100 Bees", )
+
+
+
+###### Summary Change Point Figure #######
+
+pathName <- c("Vairimorpha", "Chalkbrood", "Varroa*", "DWV.A", "DWV.B", "IAPV", "LSV")
+upper <- c(74,14,57,39.9,9.5,26,40)
+lower <- c(63,13,51.60,32.7,0.19,11,40)
+cp <- c(69,13,52.84,36.2,4.9,19,40)
+
+# make dataframe
+cpFig_DF <- data.frame(pathName, upper, lower, cp)
+
+
+x <- mutate(cpFig_DF, pathName = reorder(pathName, cp))
+
+ggplot(data = x, aes(color = pathName, y = pathName)) +  
+  geom_errorbar(aes(xmin = lower, xmax = upper), size = 1.5) +  
+  geom_point(aes(x=cp), size = 4) +
+  theme_minimal(base_size = 20) +
+  theme(legend.position = "none") +
+  labs(x="Resistance Threshold (UBeeO Score)", y=NULL)
+
+
 
