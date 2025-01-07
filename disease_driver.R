@@ -1,7 +1,8 @@
 # UBO Joint Disease Project
 # P. Alexander Burnham
 # 31 January 2023
-# Last Modified: 1 May 2024
+# Modified: 1 May 2024
+# Modified: 2 January 2025
 
 # install libraries
 library(dplyr)
@@ -553,6 +554,8 @@ Anova(mod3)
 virus <- read.csv("data/UBO_VirusData_2021.csv", header = TRUE, stringsAsFactors = FALSE)
 virus$RPS5..Cq. <- NULL # remove un-needed col
 
+
+
 # make long form
 virus_long <- gather(virus, virus, virus_load, DWV.ACopies.µl:IAPVCopies.µl, factor_key=TRUE)
 
@@ -657,10 +660,32 @@ ggplot(virus_long, aes(x=(June.UBO/100), y=(virus_load+1))) +
   scale_x_continuous(labels = scales::percent, guide = guide_axis(angle = 45))
 
 
+virus_long$virus
+
+manovaMod <- aov(virus_load ~ virus * June.UBO, data=virus_long)
+summary(manovaMod)
+
+
+library(mvabund)
+
+# Prepare response matrix
+response_matrix <- as.matrix(virus[, which(grepl("\\.µl", names(virus)))])
+
+
+# Fit model
+fit <- manylm(log10(response_matrix+1) ~ June.UBO + June.Mite, data = virus, cor.type = "R")
+
+# Summarize results
+summary(fit)
+
+
+
+# Perform ANOVA to test for predictor effects
+anova(fit, p.uni = "adjusted", cor.type = "R")
+
 
 # split dataframe by virus and run regression on log virus load
 splitVirus <- split(virus_long, virus_long$virus)
-
 
 # VIRUS PREV - UBO BINARY
 mod6 <- glm(data = splitVirus$BQCV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
@@ -849,6 +874,9 @@ ggplot(data = x, aes(color = pathName, y = pathName)) +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
   labs(x="Resistance Threshold (UBeeO Score)", y=NULL)
+
+
+
 
 
 
