@@ -557,10 +557,10 @@ virus$RPS5..Cq. <- NULL # remove un-needed col
 
 
 # make long form
-virus_long <- gather(virus, virus, virus_load, DWV.ACopies.µl:IAPVCopies.µl, factor_key=TRUE)
+virus_long <- gather(virus, virus, virus_load, DWV.ACopies.ul:IAPVCopies.ul, factor_key=TRUE)
 
 # remove "Copies.ul" from virus name
-virus_long$virus <- gsub('Copies.µl', '', virus_long$virus)
+virus_long$virus <- gsub('Copies.ul', '', virus_long$virus)
 
 # ubo scores and binary virus and mites and log load
 virus_long$virus_binary <- ifelse(virus_long$virus_load > 0, 1, 0)
@@ -668,8 +668,10 @@ summary(manovaMod)
 
 library(mvabund)
 
+# VIRUS LOAD ##############################################################
+
 # Prepare response matrix
-response_matrix <- as.matrix(virus[, which(grepl("\\.µl", names(virus)))])
+response_matrix <- as.matrix(virus[, which(grepl("\\.ul", names(virus)))])
 
 
 # Fit model
@@ -678,29 +680,69 @@ fit <- manylm(log10(response_matrix+1) ~ June.UBO + June.Mite, data = virus, cor
 # Summarize results
 summary(fit)
 
-
-
 # Perform ANOVA to test for predictor effects
 anova(fit, p.uni = "adjusted", cor.type = "R")
+
+
+
+
+# VIRUS PREV UBO BINARY ##############################################################
+
+# UBO Prev
+virus$June.UBO_prev <- ifelse(virus$June.UBO > 60, "High UBO", "Low UBO")
+
+# initialize
+binary_response <- response_matrix
+
+# create binary matrix
+for(i in 1:length(binary_response[1,])){
+  for(j in 1:length(binary_response[,1])){
+    
+    binary_response[j,i] <- ifelse(binary_response[j,i] > 0, 1, 0)
+    
+  }
+}
+
+colnames(binary_response) <- c("DWV.APrev", "DWV.BPrev", "LSVPrev", "SBVPrev", "BQCVPrev", "IAPVPrev")
+
+
+# Fit model
+fitP <- manyglm(binary_response ~ June.UBO_prev + June.Mite, data = virus, cor.type = "R")
+
+# Summarize results
+summary(fitP)
+
+# Perform ANOVA to test for predictor effects
+anova(fitP, p.uni = "adjusted", cor.type = "R")
+
+
+
+# VIRUS LOAD UBO BINARY ##############################################################
+
+# Fit model
+fit2 <- manylm(log10(response_matrix+1) ~ June.UBO_prev + June.Mite, data = virus, cor.type = "R")
+
+# Summarize results
+summary(fit2)
+
+# Perform ANOVA to test for predictor effects
+anova(fit2, p.uni = "adjusted", cor.type = "R")
+
+
+
+
+
 
 
 # split dataframe by virus and run regression on log virus load
 splitVirus <- split(virus_long, virus_long$virus)
 
-# VIRUS PREV - UBO BINARY
-mod6 <- glm(data = splitVirus$BQCV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
-mod7 <- glm(data = splitVirus$DWV.A, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
-mod8 <- glm(data = splitVirus$DWV.B, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
-mod9 <- glm(data = splitVirus$IAPV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
-mod10 <- glm(data = splitVirus$LSV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
-mod11 <- glm(data = splitVirus$SBV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
 
-Anova(mod6)
-Anova(mod7)
-Anova(mod8)
-Anova(mod9)
-Anova(mod10)
-Anova(mod11)
+
+
+virus
+
+
 
 # VIRUS LOAD - UBO BINARY
 mod12 <- glm(data = splitVirus$BQCV, (virus_load+1) ~ ubo_binary_june, family = Gamma(link = "identity"))
