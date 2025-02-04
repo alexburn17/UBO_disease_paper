@@ -660,11 +660,6 @@ ggplot(virus_long, aes(x=(June.UBO/100), y=(virus_load+1))) +
   scale_x_continuous(labels = scales::percent, guide = guide_axis(angle = 45))
 
 
-virus_long$virus
-
-manovaMod <- aov(virus_load ~ virus * June.UBO, data=virus_long)
-summary(manovaMod)
-
 
 library(mvabund)
 
@@ -681,9 +676,22 @@ fit <- manylm(log10(response_matrix+1) ~ June.UBO + June.Mite, data = virus, cor
 summary(fit)
 
 # Perform ANOVA to test for predictor effects
-anova(fit, p.uni = "adjusted", cor.type = "R")
+#anova(fit, p.uni = "adjusted", cor.type = "R")
 
+# VIRUS LOAD - continuous UBO:
+mod <- lm(data = splitVirus$BQCV, logLoad ~ June.UBO)
+mod2 <- lm(data = splitVirus$DWV.A, logLoad ~ June.UBO)
+mod1 <- lm(data = splitVirus$DWV.B, logLoad ~ June.UBO)
+mod3 <- lm(data = splitVirus$IAPV, logLoad~ June.UBO)
+mod4 <- lm(data = splitVirus$LSV, logLoad ~ June.UBO)
+mod5 <- lm(data = splitVirus$SBV, logLoad ~ June.UBO)
 
+Anova(mod)
+Anova(mod2)
+Anova(mod1)
+Anova(mod3)
+Anova(mod4)
+Anova(mod5)
 
 
 # VIRUS PREV UBO BINARY ##############################################################
@@ -713,8 +721,22 @@ fitP <- manyglm(binary_response ~ June.UBO_prev + June.Mite, data = virus, cor.t
 summary(fitP)
 
 # Perform ANOVA to test for predictor effects
-anova(fitP, p.uni = "adjusted", cor.type = "R")
+# anova(fitP, p.uni = "adjusted", cor.type = "R")
 
+# VIRUS PREV - UBO BINARY
+mod6 <- glm(data = splitVirus$BQCV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
+mod7 <- glm(data = splitVirus$DWV.A, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
+mod8 <- glm(data = splitVirus$DWV.B, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
+mod9 <- glm(data = splitVirus$IAPV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
+mod10 <- glm(data = splitVirus$LSV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
+mod11 <- glm(data = splitVirus$SBV, virus_binary ~ ubo_binary_june, family = binomial(link = "logit"))
+
+Anova(mod6)
+Anova(mod7)
+Anova(mod8)
+Anova(mod9)
+Anova(mod10)
+Anova(mod11)
 
 
 # VIRUS LOAD UBO BINARY ##############################################################
@@ -726,22 +748,11 @@ fit2 <- manylm(log10(response_matrix+1) ~ June.UBO_prev + June.Mite, data = viru
 summary(fit2)
 
 # Perform ANOVA to test for predictor effects
-anova(fit2, p.uni = "adjusted", cor.type = "R")
-
-
-
-
-
+#anova(fit2, p.uni = "adjusted", cor.type = "R")
 
 
 # split dataframe by virus and run regression on log virus load
-splitVirus <- split(virus_long, virus_long$virus)
-
-
-
-
-virus
-
+# splitVirus <- split(virus_long, virus_long$virus)
 
 
 # VIRUS LOAD - UBO BINARY
@@ -760,22 +771,9 @@ Anova(mod16)
 Anova(mod17)
 
 
-# VIRUS LOAD - continuous UBO:
-mod <- lm(data = splitVirus$BQCV, logLoad ~ June.UBO)
-mod2 <- lm(data = splitVirus$DWV.A, logLoad ~ June.UBO)
-mod1 <- lm(data = splitVirus$DWV.B, logLoad ~ June.UBO)
-mod3 <- lm(data = splitVirus$IAPV, logLoad~ June.UBO)
-mod4 <- lm(data = splitVirus$LSV, logLoad ~ June.UBO)
-mod5 <- lm(data = splitVirus$SBV, logLoad ~ June.UBO)
 
-Anova(mod)
-Anova(mod2)
-Anova(mod1)
-Anova(mod3)
-Anova(mod4)
-Anova(mod5)
 
-# NOTE: consider benjamini-hochberg to reduce FDR (have to think about hypothesis a bit more to check groupings)
+
 
 # DWV-A, DWV-B, IAPV, LSV
 # Point Estimate - THRESHOLD - Viruses
