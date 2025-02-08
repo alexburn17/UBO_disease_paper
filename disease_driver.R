@@ -167,23 +167,24 @@ summary(mod)
 ds_long$uboScore <- ds_long$Percentage_UBO/100
 ds_long$logChalk <- log10(ds_long$chalkbrood+1)
 
+ds_long$all <- "all"
 
-bot <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood), 
-                    linetype=as.character(chalk_type), shape = as.character(chalk_type))) +
-  geom_point(size=6) +
+bot <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood))) +
+  geom_point(size=6, aes(shape = as.character(chalk_type))) +
   ylab(" ") + # y axis label
   xlab(" ") + # x axis label
   theme_bw(base_size = 20) + # size of the text and label ticks
   theme(legend.position = "none") + # place the legend at the top
   coord_cartesian(xlim = c(0, .5), ylim = c(0, 50)) +
-  scale_linetype_manual(values = c(1, 3), name=" ", guide = FALSE) + # color pallets option = A-H
+  #scale_linetype_manual(values = c(1, 3), name=" ", guide = FALSE) + # color pallets option = A-H
   scale_shape_manual(values = c(20, 1), name=" ") + 
   guides(color = guide_legend(override.aes = list(label = ''))) +
-  annotate("segment", x = 0, xend = (0.8833005), y = 5.374, yend = 0,
-            colour = "darkturquoise", size = 1.2, linetype=1) +
+ # annotate("segment", x = 0, xend = (0.8833005), y = 5.374, yend = 0,
+#            colour = "darkturquoise", size = 1.2, linetype=1) +
   scale_x_continuous(labels = scales::percent) +
-  geom_smooth(method="lm", se=F, fullrange=TRUE, size = 2, color = "black")
-
+  geom_smooth(aes(fill = as.character(chalk_type), linetype=as.character(chalk_type)), method="lm", se=F, size = 2, color = "black") +
+  geom_smooth(aes(col = "Overall"), method = "lm", se = FALSE)
+bot
 # calculate average slope
 x <- lm(data = ds_long, chalkbrood ~ uboScore)
 summary(x)
@@ -647,17 +648,19 @@ plot_grid(legend, plt, nrow = 2, rel_heights = c(.1, 1))
 
 
 
+virus_long$sig <- ifelse((virus_long$virus == "BQCV" | virus_long$virus == "SBV"), "Sig", "NS")
 
-ggplot(virus_long, aes(x=(June.UBO/100), y=(virus_load+1))) +
+ggplot(virus_long, aes(x=(June.UBO/100), y=(virus_load+1), linetype = sig)) +
   geom_point(size=4) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#619B50") +
+  geom_smooth(aes(color = sig), method=lm, se=TRUE, fullrange=TRUE, size = 2) +
   theme_minimal(base_size = 20) +
-  theme(legend.position = c(.8,.8)) +
+  theme(legend.position = "none") +
   labs(x="UBeeO Score", y="Virus Load (copies/ul)", ) +
   scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                 labels = trans_format("log10", math_format(10^.x))) +
   facet_wrap(vars(virus)) +
-  scale_x_continuous(labels = scales::percent, guide = guide_axis(angle = 45))
+  scale_x_continuous(labels = scales::percent, guide = guide_axis(angle = 45))+
+  scale_color_manual(values = c("#619B50", "grey4"))
 
 
 
