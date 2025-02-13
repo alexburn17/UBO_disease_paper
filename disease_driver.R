@@ -170,20 +170,22 @@ ds_long$logChalk <- log10(ds_long$chalkbrood+1)
 ds_long$all <- "all"
 
 bot <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood))) +
-  geom_point(size=6, aes(shape = as.character(chalk_type))) +
+  geom_point(size=6, aes(color = as.character(chalk_type), shape = as.character(chalk_type))) +
   ylab(" ") + # y axis label
   xlab(" ") + # x axis label
   theme_bw(base_size = 20) + # size of the text and label ticks
   theme(legend.position = "none") + # place the legend at the top
-  coord_cartesian(xlim = c(0, .5), ylim = c(0, 50)) +
+  coord_cartesian(xlim = c(0, .45), ylim = c(0, 50)) +
   #scale_linetype_manual(values = c(1, 3), name=" ", guide = FALSE) + # color pallets option = A-H
   scale_shape_manual(values = c(20, 1), name=" ") + 
   guides(color = guide_legend(override.aes = list(label = ''))) +
  # annotate("segment", x = 0, xend = (0.8833005), y = 5.374, yend = 0,
 #            colour = "darkturquoise", size = 1.2, linetype=1) +
   scale_x_continuous(labels = scales::percent) +
-  geom_smooth(aes(fill = as.character(chalk_type), linetype=as.character(chalk_type)), method="lm", se=F, size = 2, color = "black") +
-  geom_smooth(aes(col = "Overall"), method = "lm", se = FALSE)
+  geom_smooth(aes(col = "Overall"), method = "lm", se = F, size = 2, color = "black", alpha = 0.8)+
+  geom_smooth(aes(fill = as.character(chalk_type), color=as.character(chalk_type)), method="lm", se=F, size = 2) +
+  scale_fill_manual(values = c("#9E519F","#519E9A"))+
+  scale_color_manual(values = c("#9E519F","#519E9A"))
 bot
 # calculate average slope
 x <- lm(data = ds_long, chalkbrood ~ uboScore)
@@ -191,7 +193,7 @@ summary(x)
 
 
 top <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood), 
-                           linetype=as.character(chalk_type), shape = as.character(chalk_type))) +
+                           linetype=as.character(chalk_type), color = as.character(chalk_type), shape = as.character(chalk_type))) +
   geom_point(size=6) +
   theme_bw(base_size = 20) + # size of the text and label ticks
   theme(legend.position = c(.75, .5),
@@ -201,12 +203,13 @@ top <- ggplot(ds_long, aes(x=uboScore, y = (chalkbrood),
         panel.border = element_rect(colour = "black", fill=NA),
         legend.background = element_blank(),
         legend.box.background = element_rect(colour = "black")) +
-  coord_cartesian(xlim = c(0, .5)) +
+  coord_cartesian(xlim = c(0, .45)) +
   ylab(" ") + # y axis label
-  scale_linetype_manual(values = c(1, 3), name=NULL, guide = FALSE) + # color pallets option = A-H
-  scale_shape_manual(values = c(20, 1), name=NULL) + 
+  scale_linetype_manual(values = c(1, 3), name="Chalk Type:", labels = c("Black Chalk Spores", "White Chalk"), guide = FALSE) + # color pallets option = A-H
+  scale_shape_manual(values = c(20, 1), name="Chalk Type:", labels = c("Black Chalk Spores", "White Chalk")) + 
   guides(color = guide_legend(override.aes = list(label = ''))) +
-  scale_y_continuous(limits = c(150, 200), breaks = seq(150, 200, by = 25))
+  scale_y_continuous(limits = c(150, 200), breaks = seq(150, 200, by = 25))+
+  scale_color_manual(values = c("#9E519F","#519E9A"), name="Chalk Type:", labels = c("Black Chalk Spores", "White Chalk"))
 top
 
 plt <- plot_grid(top, bot, ncol = 1, rel_heights = c(.30, 1), align = "v")
@@ -476,24 +479,34 @@ cleanDS_22$block <- paste0(cleanDS_22$beekeeper, "_", cleanDS_22$yard)
 cleanDS_22_noMonth <- cleanDS_22[!is.na(cleanDS_22$Month),]
 cleanDS_22_noMonth$Month <- factor(cleanDS_22_noMonth$Month, levels = c("June", "July", "August", "Sept."))
 
-ggplot(cleanDS_22_noMonth, aes(x=assay_score, y=((nosema_count*4000000)/80), color=Month, shape=Month)) +
-  geom_point(size=4) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 1.9) +
-  theme_minimal(base_size = 20) +
-  theme(legend.position = c(.8,.8)) +
-  labs(x="UBeeO Score", y="Nosema Load (spores/bee)", color="Month") +
-  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                labels = trans_format("log10", math_format(10^.x))) +
-  scale_color_manual(values = c("#9E519F","#519E9A", "#5071A0", "#E77624")) 
-
-
 nosPos <- cleanDS_22_noMonth[cleanDS_22_noMonth$nosema_count>0, ]
+
+
+nosPos <- nosPos[!is.na(nosPos$Month),]
+
+
+ggplot(nosPos, aes(x=assay_score, y=1+((nosema_count*4000000)/80))) +
+  geom_point(aes(color=Month, shape=Month), size=4) + 
+  geom_smooth(aes(color=Month), method=lm, se=FALSE, fullrange=TRUE, size = 1.2, name = "Month") +
+  geom_smooth(method=lm, se=T, fullrange=TRUE, size = 1, color = "black", linetype=1) +
+  theme_minimal(base_size = 20) +
+  theme(legend.position = c(.85,.8)) +
+  labs(x="UBeeO Score", y="Nosema Load (spores/bee)", color="Month") +
+  scale_y_log10(
+    breaks = scales::trans_breaks("log10", function(x) 10^x, n = 2),
+    labels = scales::trans_format("log10", scales::math_format(10^.x))
+  ) +
+  scale_color_manual(values = c("#9E519F","#519E9A", "#5071A0", "#E77624"), name = "Month")+
+  scale_shape_manual(values = c(17,18,15,19), name = "Month") +
+  scale_x_continuous(labels = scales::percent)
+
+
 
 
 # facet wrap version
 ggplot(nosPos, aes(x=assay_score, y=1+((nosema_count*4000000)/80))) +
   geom_point(size=4) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE, size = 2, color = "#619B50") +
+  geom_smooth(method=lm, se=T, fullrange=TRUE, size = 2, color = "#619B50") +
   theme_minimal(base_size = 20) +
   theme(legend.position = "none") +
   labs(x="UBeeO Score", y="Vairimorpha Load (spores/bee)", color="Month") +
