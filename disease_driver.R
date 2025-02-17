@@ -491,7 +491,7 @@ ggplot(nosPos, aes(x=assay_score, y=1+((nosema_count*4000000)/80))) +
   geom_smooth(method=lm, se=T, fullrange=TRUE, size = 1, color = "black", linetype=1) +
   theme_minimal(base_size = 20) +
   theme(legend.position = c(.85,.8)) +
-  labs(x="UBeeO Score", y="Nosema Load (spores/bee)", color="Month") +
+  labs(x="UBeeO Score", y="Vairimorpha Load (spores/bee)", color="Month") +
   scale_y_log10(
     breaks = scales::trans_breaks("log10", function(x) 10^x, n = 2),
     labels = scales::trans_format("log10", scales::math_format(10^.x))
